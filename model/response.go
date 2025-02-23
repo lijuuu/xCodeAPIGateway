@@ -1,8 +1,18 @@
 package model
 
-// ErrorResponse for generic error responses
-type ErrorResponse struct {
-	Message string `json:"message"`
+// GenericResponse is a standardized structure for API responses
+type GenericResponse struct {
+	Success bool        `json:"success"`           // Indicates if the request was successful
+	Status  int         `json:"status"`            // HTTP status code (e.g., 200, 400, 500)
+	Payload interface{} `json:"payload,omitempty"` // Application-specific data (nil for errors unless needed)
+	Error   *ErrorInfo  `json:"error,omitempty"`   // Error details (nil for success)
+}
+
+// ErrorInfo contains detailed error information
+type ErrorInfo struct {
+	Code    int    `json:"code"`              // Application-specific error code
+	Message string `json:"message"`           // Human-readable error message
+	Details string `json:"details,omitempty"` // Additional error details (optional)
 }
 
 // Authentication and Security Responses

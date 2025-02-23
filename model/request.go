@@ -20,6 +20,10 @@ type LoginUserRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+type LoginAdminRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 
 type TokenRefreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
@@ -34,8 +38,8 @@ type ResendOTPRequest struct {
 }
 
 type VerifyUserRequest struct {
-	Token string `json:"token"`
-	Email string `json:"email"`
+	Token  string `json:"token"`
+	UserID string `json:"userID"`
 }
 
 type SetTwoFactorAuthRequest struct {
@@ -48,8 +52,18 @@ type ForgotPasswordRequest struct {
 }
 
 type ChangePasswordRequest struct {
-	UserID      string `json:"userID"`
-	NewPassword string `json:"newPassword"`
+	UserID          string `json:"userID"`
+	NewPassword     string `json:"newPassword"`
+	ConfirmPassword string `json:"confirmPassword"`
+	OldPassword     string `json:"oldPassword"`
+}
+
+type FinishForgotPasswordRequest struct {
+	Token           string `json:"token"`
+	UserID          string `json:"userID"`
+	Email           string `json:"email"`
+	NewPassword     string `json:"newPassword"`
+	ConfirmPassword string `json:"confirmPassword"`
 }
 
 // User Management Requests
@@ -65,8 +79,8 @@ type UpdateProfileRequest struct {
 }
 
 type UpdateProfileImageRequest struct {
-	UserID     string `json:"userID"`
-	AvatarData string `json:"avatarData"`
+	UserID    string `json:"userID"`
+	AvatarURL string `json:"avatarURL"`
 }
 
 type GetUserProfileRequest struct {

@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	config "xcode/configs"
+	"xcode/model"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	user "github.com/lijuuu/GlobalProtoXcode/UserService"
+	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
 )
 
-// Custom claims structure
+// Claims structure
 type Claims struct {
 	ID   string `json:"id"`
 	Role string `json:"role"`
@@ -24,118 +24,147 @@ type Claims struct {
 
 // Context keys
 const (
-	EntityID = "id"
-	RoleKey  = "role"
+	EntityID = "ID"
+	RoleKey  = "ROLE"
 )
 
 // Role constants
 const (
-	RoleAdmin      = "admin"
-	RoleUser       = "user"
-	RoleRestaurant = "restaurant"
+	RoleAdmin = "ADMIN"
+	RoleUser  = "USER"
 )
 
 // JWTAuthMiddleware handles JWT authentication and role verification
-func JWTAuthMiddleware() gin.HandlerFunc {
+func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get token from Authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "Authorization header is required",
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "Authorization header is required",
+				},
 			})
 			c.Abort()
 			return
 		}
 
-		// Remove Bearer prefix
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "Invalid token format",
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "Invalid token format",
+				},
 			})
 			c.Abort()
 			return
 		}
 
-		// Parse and validate token
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			// Validate signing method
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("unexpected signing method")
 			}
-			config := config.LoadConfig()
-			return []byte(config.JWTSecretKey), nil
+			return []byte(jwtSecret), nil
 		})
 
 		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "Invalid or expired token",
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "Invalid or expired token",
+					Details: err.Error(),
+				},
 			})
 			c.Abort()
 			return
 		}
 
-		// Verify token expiration
 		if time.Now().Unix() > claims.ExpiresAt.Unix() {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "Token has expired",
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "Token has expired",
+				},
 			})
 			c.Abort()
 			return
 		}
 
-		// Store user information in context
 		c.Set(EntityID, claims.ID)
 		c.Set(RoleKey, claims.Role)
-
-		// Log the values that were set
-		entityID, _ := c.Get(EntityID)
-		role, _ := c.Get(RoleKey)
-		log.Printf("Context values set - EntityID: %v, Role: %v", entityID, role)
-
+		log.Printf("JWT validated - Path: %s, EntityID: %v, Role: %v", c.Request.URL.Path, claims.ID, claims.Role)
 		c.Next()
 	}
 }
 
-// UserAuthMiddleware verifies if the user has user role
-func UserAuthMiddleware() gin.HandlerFunc {
+// RoleAuthMiddleware verifies if the user has one of the allowed roles
+func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get(RoleKey)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"message": "Role information not found",
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "Role information not found",
+				},
 			})
 			c.Abort()
 			return
 		}
 
-		if role != RoleUser {
-			c.JSON(http.StatusForbidden, gin.H{
-				"success": false,
-				"message": "User access required",
-			})
-			c.Abort()
-			return
+		userRole := role.(string)
+		for _, allowedRole := range allowedRoles {
+			if userRole == allowedRole {
+				c.Next()
+				return
+			}
 		}
 
-		c.Next()
+		c.JSON(http.StatusForbidden, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusForbidden,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusForbidden,
+				Message: "Insufficient role permissions",
+				Details: "Required roles: " + strings.Join(allowedRoles, ", "),
+			},
+		})
+		c.Abort()
 	}
 }
 
 // UserBanCheckMiddleware checks if a user is banned before allowing access
-func UserBanCheckMiddleware(userClient user.UserServiceClient) gin.HandlerFunc {
+func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminServiceClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get user ID from the context (set by JWTAuthMiddleware)
 		userId, exists := GetEntityID(c)
 		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in token"})
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "User ID not found in token",
+				},
+			})
 			c.Abort()
 			return
 		}
@@ -143,19 +172,34 @@ func UserBanCheckMiddleware(userClient user.UserServiceClient) gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Check if user is banned
-		response, err := userClient.CheckBanStatus(ctx, &user.CheckBanStatusRequest{
+		response, err := userClient.CheckBanStatus(ctx, &AuthUserAdminService.CheckBanStatusRequest{
 			UserID: userId,
 		})
-
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check ban status"})
+			c.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusInternalServerError,
+					Message: "Failed to check ban status",
+					Details: err.Error(),
+				},
+			})
 			c.Abort()
 			return
 		}
 
 		if response.IsBanned {
-			c.JSON(http.StatusForbidden, gin.H{"error": "User is banned"})
+			c.JSON(http.StatusForbidden, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusForbidden,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusForbidden,
+					Message: "User is banned",
+				},
+			})
 			c.Abort()
 			return
 		}
@@ -164,7 +208,7 @@ func UserBanCheckMiddleware(userClient user.UserServiceClient) gin.HandlerFunc {
 	}
 }
 
-// GetUserID retrieves the user ID from the context
+// GetEntityID retrieves the user ID from the context
 func GetEntityID(c *gin.Context) (string, bool) {
 	ID, exists := c.Get(EntityID)
 	if !exists {
@@ -173,7 +217,7 @@ func GetEntityID(c *gin.Context) (string, bool) {
 	return ID.(string), true
 }
 
-// GetUserRole retrieves the user role from the context
+// GetEntityRole retrieves the user role from the context
 func GetEntityRole(c *gin.Context) (string, bool) {
 	role, exists := c.Get(RoleKey)
 	if !exists {

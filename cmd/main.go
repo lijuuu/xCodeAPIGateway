@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"xcode/clients"
 	config "xcode/configs"
@@ -31,7 +32,9 @@ func main() {
 	limiter := rate.NewLimiter(1, 3)
 	ginRouter.Use(func(c *gin.Context) {
 		if !limiter.Allow() {
-			c.AbortWithStatus(429)
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests"})
+			c.Abort()
+			return
 		}
 		c.Next()
 	})
@@ -43,7 +46,7 @@ func main() {
 	// }))
 
 	// Setup all routes
-	router.InitializeServiceRoutes(ginRouter, Client)
+	router.InitializeServiceRoutes(ginRouter, Client, config.JWTSecretKey)
 
 	// Start the HTTP server (API Gateway)
 	log.Printf("API Gateway is running on port %s", config.APIGATEWAYPORT)

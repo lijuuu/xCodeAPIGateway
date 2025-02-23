@@ -1,7 +1,7 @@
 package clients
 
 import (
-	"errors"
+	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -10,21 +10,20 @@ import (
 )
 
 type ClientConnections struct {
-	ConnUser       *grpc.ClientConn
-	ConnRestaurant *grpc.ClientConn
-	ConnAdmin       *grpc.ClientConn
-	ConnOrderCart  *grpc.ClientConn
+	ConnUser *grpc.ClientConn
 }
 
 func InitClients(config *config.Config) (*ClientConnections, error) {
-	// User Service Connection
-	ConnUser, err := grpc.NewClient(config.UserGRPCPort, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Ensure UserGRPCPort includes host:port (e.g., "localhost:50051")
+	target := fmt.Sprintf("localhost:%s", config.UserGRPCPort)
+	ConnUser, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	fmt.Println("Connecting to UserService at:", target, "ConnUser:", ConnUser)
 	if err != nil {
-		return nil, errors.New("could not Connect to User gRPC server: " + err.Error())
+		return nil, fmt.Errorf("failed to connect to User gRPC server: %v", err)
 	}
 
 	return &ClientConnections{
-		ConnUser:       ConnUser,
+		ConnUser: ConnUser,
 	}, nil
 }
 
