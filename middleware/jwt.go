@@ -199,7 +199,7 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 		defer cancel()
 
 		// Pass the user ID in the RPC context
-		rpcCtx := context.WithValue(ctx, "userID", userID)
+		rpcCtx := context.WithValue(ctx, "USERID", userID)
 
 		response, err := userClient.CheckBanStatus(rpcCtx, &AuthUserAdminService.CheckBanStatusRequest{
 			UserID: userID,

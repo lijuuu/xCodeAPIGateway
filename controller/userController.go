@@ -28,7 +28,6 @@ func (uc *UserController) GetUserClient() AuthUserAdminService.AuthUserAdminServ
 }
 
 // Authentication and Security
-
 func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 	var req model.RegisterUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -40,6 +39,20 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 				Code:    http.StatusBadRequest,
 				Message: "Invalid request",
 				Details: err.Error(),
+			},
+		})
+		return
+	}
+
+	// Validate Socials
+	if req.Socials.Github == "" && req.Socials.Twitter == "" && req.Socials.Linkedin == "" {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusBadRequest,
+				Message: "At least one social link is required",
 			},
 		})
 		return
@@ -329,8 +342,8 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 			Payload: nil,
 			Error: &model.ErrorInfo{
 				Code:    http.StatusBadRequest,
-				Message: "Missing userID or token query parameter",
-				Details: "userID and token are required",
+				Message: "Missing email or token query parameter",
+				Details: "email and token are required",
 			},
 		})
 		return
@@ -381,12 +394,12 @@ func (uc *UserController) SetTwoFactorAuthHandler(c *gin.Context) {
 		return
 	}
 
-	setTwoFactorAuthRequest := &AuthUserAdminService.SetTwoFactorAuthRequest{
-		UserID: req.UserID,
-		Enable: req.Enable,
+	setTwoFactorAuthRequest := &AuthUserAdminService.ToggleTwoFactorAuthRequest{
+		UserID:        req.UserID,
+		TwoFactorAuth: req.Enable,
 	}
 
-	resp, err := uc.userClient.SetTwoFactorAuth(c.Request.Context(), setTwoFactorAuthRequest)
+	resp, err := uc.userClient.ToggleTwoFactorAuth(c.Request.Context(), setTwoFactorAuthRequest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.GenericResponse{
 			Success: false,
@@ -550,7 +563,6 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 }
 
 // User Management
-
 func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 	var req model.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -653,14 +665,15 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
+	// Extract user ID directly from JWT claims
 	userID, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
+				Code:    http.StatusUnauthorized,
 				Message: "Failed to get user ID from context",
 				Details: "userID is required",
 			},
@@ -669,7 +682,7 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 	}
 
 	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
-		UserID: userID.(string),
+		UserID: userID.(string), // Use the user ID directly from the claims
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
@@ -1333,10 +1346,7 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 
 func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 
-
-	getAllUsersRequest := &AuthUserAdminService.GetAllUsersRequest{
-		
-	}
+	getAllUsersRequest := &AuthUserAdminService.GetAllUsersRequest{}
 
 	resp, err := uc.userClient.GetAllUsers(c.Request.Context(), getAllUsersRequest)
 	if err != nil {

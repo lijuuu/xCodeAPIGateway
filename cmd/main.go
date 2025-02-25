@@ -8,7 +8,7 @@ import (
 	config "xcode/configs"
 	router "xcode/route"
 
-	// "github.com/gin-contrib/cors"
+	"github.com/gin-contrib/cors"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -39,11 +39,7 @@ func main() {
 		c.Next()
 	})
 
-	// ginRouter.Use(cors.New(cors.Config{
-	// 	AllowOrigins: []string{"http://localhost:7000"},
-	// 	AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
-	// 	AllowHeaders: []string{"Authorization", "Content-Type"},
-	// }))
+	ginRouter.Use(cors.Default())
 
 	// Setup all routes
 	router.SetupRoutes(ginRouter, Client, config.JWTSecretKey)
