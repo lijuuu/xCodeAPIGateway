@@ -9,95 +9,93 @@ import (
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
 )
 
-// InitializeServiceRoutes sets up all service routes with appropriate middleware
-func InitializeServiceRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecret string) {
+// SetupRoutes initializes all API routes with middleware and controllers under /api/v1/
+func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecret string) {
+	// Initialize gRPC client and controllers
 	userClient := AuthUserAdminService.NewAuthUserAdminServiceClient(clients.ConnUser)
 	userController := controller.NewUserController(userClient)
 	adminController := controller.NewAdminController()
 
-	// Setup route groups
-	setupPublicRoutes(router, userController)
-	setupProtectedRoutes(router, userController, jwtSecret)
-	setupAdminRoutes(router, userController, adminController, jwtSecret)
+	// Base API group with version prefix
+	apiV1 := router.Group("/api/v1")
+
+	// Organize routes into logical groups
+	setupPublicAuthRoutes(apiV1, userController)
+	setupProtectedUserRoutes(apiV1, userController, jwtSecret)
+	setupAdminRoutes(apiV1, userController, adminController, jwtSecret)
 }
 
-// setupPublicRoutes handles authentication-related endpoints
-func setupPublicRoutes(router *gin.Engine, userController *controller.UserController) {
-	auth := router.Group("/auth")
+// setupPublicAuthRoutes defines endpoints for authentication (no JWT required)
+func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController) {
+	auth := apiV1.Group("/auth")
 	{
 		auth.POST("/register", userController.RegisterUserHandler)
 		auth.POST("/login", userController.LoginUserHandler)
 		auth.POST("/token/refresh", userController.TokenRefreshHandler)
-		auth.POST("/verify", userController.VerifyUserHandler)
-		auth.POST("/otp/resend", userController.ResendOTPHandler)
-		auth.POST("/password/forgot", userController.ForgotPasswordHandler)
+		auth.GET("/verify", userController.VerifyUserHandler)       // ?userID=uuid&token=123456
+		auth.GET("/otp/resend", userController.ResendOTPHandler)    // ?userID=uuid
+		auth.GET("/password/forgot", userController.ForgotPasswordHandler) // ?email=user@example.com
 	}
 }
 
-// setupProtectedRoutes handles authenticated user endpoints
-func setupProtectedRoutes(router *gin.Engine, userController *controller.UserController, jwtSecret string) {
-	api := router.Group("/api/users")
-	api.Use(
+// setupProtectedUserRoutes defines endpoints for authenticated users (USER role)
+func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController, jwtSecret string) {
+	users := apiV1.Group("/users")
+	users.Use(
 		middleware.JWTAuthMiddleware(jwtSecret),
-		middleware.RoleAuthMiddleware(middleware.RoleUser), // Only USER role allowed
+		middleware.RoleAuthMiddleware(middleware.RoleUser),
 		middleware.UserBanCheckMiddleware(userController.GetUserClient()),
 	)
 	{
-		// Profile management
-		profile := api.Group("/profile")
+		// User profile management
+		profile := users.Group("/profile")
 		{
 			profile.GET("", userController.GetUserProfileHandler)
-			profile.PUT("", userController.UpdateProfileHandler)
-			profile.PUT("/image", userController.UpdateProfileImageHandler)
+			profile.GET("/all", userController.GetAllUsersHandler)
+			profile.PUT("/update", userController.UpdateProfileHandler)
+			profile.PATCH("/image", userController.UpdateProfileImageHandler)
 		}
 
-		// Follow system
-		follow := api.Group("/follow")
+		// Social follow system
+		follow := users.Group("/follow")
 		{
-			follow.POST("/:userID", userController.FollowUserHandler)
-			follow.DELETE("/:userID", userController.UnfollowUserHandler)
-			follow.GET("/following", userController.GetFollowingHandler)
-			follow.GET("/followers", userController.GetFollowersHandler)
+			follow.POST("", userController.FollowUserHandler)      // ?userID=uuid
+			follow.DELETE("", userController.UnfollowUserHandler)  // ?userID=uuid
+			follow.GET("/following", userController.GetFollowingHandler) // ?userID=uuid (optional)
+			follow.GET("/followers", userController.GetFollowersHandler) // ?userID=uuid (optional)
 		}
 
 		// Security settings
-		security := api.Group("/security")
+		security := users.Group("/security")
 		{
 			security.POST("/password/change", userController.ChangePasswordHandler)
 			security.POST("/2fa", userController.SetTwoFactorAuthHandler)
 		}
 
-		// Session management
-		api.POST("/logout", userController.LogoutUserHandler)
+		users.POST("/logout", userController.LogoutUserHandler)
 	}
 }
 
-// setupAdminRoutes handles admin-only endpoints
-func setupAdminRoutes(router *gin.Engine, userController *controller.UserController, adminController *controller.AdminController, jwtSecret string) {
-	api := router.Group("/api/admin")
-	api.POST("/login", adminController.LoginAdminHandler)
-	admin := api.Group("/users")
-	admin.Use(
-		middleware.JWTAuthMiddleware(jwtSecret),
-		middleware.RoleAuthMiddleware(middleware.RoleAdmin),
-	)
+// setupAdminRoutes defines endpoints for admin operations (ADMIN role)
+func setupAdminRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController, adminController *controller.AdminController, jwtSecret string) {
+	adminRoot := apiV1.Group("/admin")
 	{
-		// User management
-		admin.GET("/", userController.GetAllUsersHandler)
-		admin.POST("", userController.CreateUserAdminHandler)
-		admin.PUT("/:userID", userController.UpdateUserAdminHandler)
-		admin.DELETE("/:userID/soft", userController.SoftDeleteUserAdminHandler)
+		adminRoot.POST("/login", adminController.LoginAdminHandler)
 
-		// Verification
-		admin.POST("/:userID/verify", userController.VerifyAdminUserHandler)
-		admin.POST("/:userID/unverify", userController.UnverifyUserHandler)
-
-		// Blocking
-		admin.POST("/:userID/block", userController.BlockUserHandler)
-		admin.POST("/:userID/unblock", userController.UnblockUserHandler)
-
-		// Listings
-		admin.GET("/:userID/following", userController.GetFollowingHandler)
-		admin.GET("/:userID/followers", userController.GetFollowersHandler)
+		adminUsers := adminRoot.Group("/users")
+		adminUsers.Use(
+			middleware.JWTAuthMiddleware(jwtSecret),
+			middleware.RoleAuthMiddleware(middleware.RoleAdmin),
+		)
+		{
+			adminUsers.GET("", userController.GetAllUsersHandler) // ?page=1&limit=10&roleFilter=USER&statusFilter=active
+			adminUsers.POST("", userController.CreateUserAdminHandler)
+			adminUsers.PUT("/update", userController.UpdateUserAdminHandler) // ?userID=uuid
+			adminUsers.DELETE("/soft-delete", userController.SoftDeleteUserAdminHandler) // ?userID=uuid
+			adminUsers.POST("/verify", userController.VerifyAdminUserHandler) // ?userID=uuid
+			adminUsers.POST("/unverify", userController.UnverifyUserHandler) // ?userID=uuid
+			adminUsers.POST("/block", userController.BlockUserHandler) // ?userID=uuid
+			adminUsers.POST("/unblock", userController.UnblockUserHandler) // ?userID=uuid
+		}
 	}
 }

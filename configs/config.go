@@ -26,7 +26,7 @@ func LoadConfig() Config {
 
 	return Config{
 		Environment:    getEnv("ENVIRONMENT", "development"),
-		JWTSecretKey:   getEnv("JWTSECRET", "default-secret-key-please-change-me"),
+		JWTSecretKey:   getEnv("JWTSECRETKEY", "secretLeetcode"),
 		APIGATEWAYPORT: getEnv("APIGATEWAYPORT", "7000"),
 		UserGRPCPort:   getEnv("USERGRPCPORT", "50051"),
 	}

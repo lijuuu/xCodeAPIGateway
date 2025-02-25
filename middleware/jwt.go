@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // Claims structure
@@ -24,8 +25,8 @@ type Claims struct {
 
 // Context keys
 const (
-	EntityID = "ID"
-	RoleKey  = "ROLE"
+	EntityIDKey = "entityID" // Lowercase for consistency
+	RoleKey     = "role"     // Lowercase for consistency
 )
 
 // Role constants
@@ -34,8 +35,10 @@ const (
 	RoleUser  = "USER"
 )
 
-// JWTAuthMiddleware handles JWT authentication and role verification
+// JWTAuthMiddleware handles JWT authentication
 func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
+	fmt.Println("JWTAuthMiddleware ", jwtSecret)
+	logger := logrus.New() // Use logrus for consistency
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -90,29 +93,18 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		if time.Now().Unix() > claims.ExpiresAt.Unix() {
-			c.JSON(http.StatusUnauthorized, model.GenericResponse{
-				Success: false,
-				Status:  http.StatusUnauthorized,
-				Payload: nil,
-				Error: &model.ErrorInfo{
-					Code:    http.StatusUnauthorized,
-					Message: "Token has expired",
-				},
-			})
-			c.Abort()
-			return
-		}
-
-		c.Set(EntityID, claims.ID)
+		// Expiration already checked by jwt.ParseWithClaims, no need for extra check
+		c.Set(EntityIDKey, claims.ID)
 		c.Set(RoleKey, claims.Role)
-		log.Printf("JWT validated - Path: %s, EntityID: %v, Role: %v", c.Request.URL.Path, claims.ID, claims.Role)
+
+		logger.Printf("JWT validated - Path: %s, EntityID: %v, Role: %v", c.Request.URL.Path, claims.ID, claims.Role)
 		c.Next()
 	}
 }
 
 // RoleAuthMiddleware verifies if the user has one of the allowed roles
 func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
+	logger := logrus.New()
 	return func(c *gin.Context) {
 		role, exists := c.Get(RoleKey)
 		if !exists {
@@ -129,7 +121,23 @@ func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
-		userRole := role.(string)
+		userRole, ok := role.(string)
+		if !ok {
+			logger.Errorf("Invalid role type in context: %v", role)
+			c.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusInternalServerError,
+					Message: "Internal server error",
+					Details: "Invalid role type",
+				},
+			})
+			c.Abort()
+			return
+		}
+
 		for _, allowedRole := range allowedRoles {
 			if userRole == allowedRole {
 				c.Next()
@@ -151,10 +159,28 @@ func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	}
 }
 
-// UserBanCheckMiddleware checks if a user is banned before allowing access
+// UserBanCheckMiddleware checks if a user is banned
 func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminServiceClient) gin.HandlerFunc {
+	logger := logrus.New()
+	const timeout = 10 * time.Second // Could be made configurable
 	return func(c *gin.Context) {
-		userId, exists := GetEntityID(c)
+		if userClient == nil {
+			logger.Errorf("User client is nil")
+			c.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusInternalServerError,
+					Message: "Internal server error",
+					Details: "User client not provided",
+				},
+			})
+			c.Abort()
+			return
+		}
+
+		userID, exists := GetEntityID(c)
 		if !exists {
 			c.JSON(http.StatusUnauthorized, model.GenericResponse{
 				Success: false,
@@ -169,11 +195,14 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		response, err := userClient.CheckBanStatus(ctx, &AuthUserAdminService.CheckBanStatusRequest{
-			UserID: userId,
+		// Pass the user ID in the RPC context
+		rpcCtx := context.WithValue(ctx, "userID", userID)
+
+		response, err := userClient.CheckBanStatus(rpcCtx, &AuthUserAdminService.CheckBanStatusRequest{
+			UserID: userID,
 		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, model.GenericResponse{
@@ -210,11 +239,16 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 
 // GetEntityID retrieves the user ID from the context
 func GetEntityID(c *gin.Context) (string, bool) {
-	ID, exists := c.Get(EntityID)
+	id, exists := c.Get(EntityIDKey)
 	if !exists {
 		return "", false
 	}
-	return ID.(string), true
+	userID, ok := id.(string)
+	if !ok {
+		logrus.Errorf("Invalid entity ID type in context: %v", id)
+		return "", false
+	}
+	return userID, true
 }
 
 // GetEntityRole retrieves the user role from the context
@@ -223,5 +257,10 @@ func GetEntityRole(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	return role.(string), true
+	userRole, ok := role.(string)
+	if !ok {
+		logrus.Errorf("Invalid role type in context: %v", role)
+		return "", false
+	}
+	return userRole, true
 }

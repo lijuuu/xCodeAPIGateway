@@ -46,7 +46,7 @@ func main() {
 	// }))
 
 	// Setup all routes
-	router.InitializeServiceRoutes(ginRouter, Client, config.JWTSecretKey)
+	router.SetupRoutes(ginRouter, Client, config.JWTSecretKey)
 
 	// Start the HTTP server (API Gateway)
 	log.Printf("API Gateway is running on port %s", config.APIGATEWAYPORT)
