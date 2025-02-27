@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
-	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250227054941-d7ab243f5adf
+	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250227130933-5ac6475a8bc3
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/time v0.10.0
 )

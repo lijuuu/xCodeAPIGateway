@@ -14,7 +14,7 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	// Initialize gRPC client and controllers
 	userClient := AuthUserAdminService.NewAuthUserAdminServiceClient(clients.ConnUser)
 	userController := controller.NewUserController(userClient)
-	adminController := controller.NewAdminController()
+	// adminController := controller.NewAdminController()
 
 	// Base API group with version prefix
 	apiV1 := router.Group("/api/v1")
@@ -22,7 +22,7 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	// Organize routes into logical groups
 	setupPublicAuthRoutes(apiV1, userController)
 	setupProtectedUserRoutes(apiV1, userController, jwtSecret)
-	setupAdminRoutes(apiV1, userController, adminController, jwtSecret)
+	setupAdminRoutes(apiV1, userController, jwtSecret)
 }
 
 // setupPublicAuthRoutes defines endpoints for authentication (no JWT required)
@@ -35,6 +35,8 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 		auth.GET("/verify", userController.VerifyUserHandler)       // ?userID=uuid&token=123456
 		auth.GET("/otp/resend", userController.ResendOTPHandler)    // ?userID=uuid
 		auth.GET("/password/forgot", userController.ForgotPasswordHandler) // ?email=user@example.com
+		// Updated to use JSON body for sensitive data instead of query parameters
+		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "userID", "token", "newPassword", "confirmPassword" }
 	}
 }
 
@@ -51,18 +53,19 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		profile := users.Group("/profile")
 		{
 			profile.GET("", userController.GetUserProfileHandler)
-			profile.GET("/all", userController.GetAllUsersHandler)
 			profile.PUT("/update", userController.UpdateProfileHandler)
 			profile.PATCH("/image", userController.UpdateProfileImageHandler)
+			// Optionally allow users to view their own ban history
+			profile.GET("/ban-history", userController.BanHistoryHandler) // No userID needed (uses authenticated user)
 		}
 
 		// Social follow system
 		follow := users.Group("/follow")
 		{
-			follow.POST("", userController.FollowUserHandler)      // ?userID=uuid
-			follow.DELETE("", userController.UnfollowUserHandler)  // ?userID=uuid
-			follow.GET("/following", userController.GetFollowingHandler) // ?userID=uuid (optional)
-			follow.GET("/followers", userController.GetFollowersHandler) // ?userID=uuid (optional)
+			follow.POST("", userController.FollowUserHandler)      // ?followeeID=uuid (followerID from JWT)
+			follow.DELETE("", userController.UnfollowUserHandler)  // ?followeeID=uuid (followerID from JWT)
+			follow.GET("/following", userController.GetFollowingHandler) // ?userID=uuid (optional)&pageToken=abc&limit=10
+			follow.GET("/followers", userController.GetFollowersHandler) // ?userID=uuid (optional)&pageToken=abc&limit=10
 		}
 
 		// Security settings
@@ -72,15 +75,19 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 			security.POST("/2fa", userController.SetTwoFactorAuthHandler)
 		}
 
+		// User search functionality
+		users.GET("/search", userController.SearchUsersHandler) // ?query=abc&pageToken=def&limit=10
+
 		users.POST("/logout", userController.LogoutUserHandler)
 	}
 }
 
 // setupAdminRoutes defines endpoints for admin operations (ADMIN role)
-func setupAdminRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController, adminController *controller.AdminController, jwtSecret string) {
+func setupAdminRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController, jwtSecret string) {
 	adminRoot := apiV1.Group("/admin")
 	{
-		adminRoot.POST("/login", adminController.LoginAdminHandler)
+		// Corrected to use userController since LoginAdmin is part of AuthUserAdminService
+		adminRoot.POST("/login", userController.LoginAdminHandler)
 
 		adminUsers := adminRoot.Group("/users")
 		adminUsers.Use(
@@ -88,14 +95,15 @@ func setupAdminRoutes(apiV1 *gin.RouterGroup, userController *controller.UserCon
 			middleware.RoleAuthMiddleware(middleware.RoleAdmin),
 		)
 		{
-			adminUsers.GET("", userController.GetAllUsersHandler) // ?page=1&limit=10&roleFilter=USER&statusFilter=active
-			adminUsers.POST("", userController.CreateUserAdminHandler)
-			adminUsers.PUT("/update", userController.UpdateUserAdminHandler) // ?userID=uuid
-			adminUsers.DELETE("/soft-delete", userController.SoftDeleteUserAdminHandler) // ?userID=uuid
-			adminUsers.POST("/verify", userController.VerifyAdminUserHandler) // ?userID=uuid
-			adminUsers.POST("/unverify", userController.UnverifyUserHandler) // ?userID=uuid
-			adminUsers.POST("/block", userController.BlockUserHandler) // ?userID=uuid
-			adminUsers.POST("/unblock", userController.UnblockUserHandler) // ?userID=uuid
+			adminUsers.GET("", userController.GetAllUsersHandler) // ?pageToken=abc&limit=10&roleFilter=USER&statusFilter=active
+			adminUsers.POST("", userController.CreateUserAdminHandler) // JSON body
+			adminUsers.PUT("/update", userController.UpdateUserAdminHandler) // JSON body: { "userID", ... }
+			adminUsers.DELETE("/soft-delete", userController.SoftDeleteUserAdminHandler) // JSON body: { "userID" }
+			adminUsers.POST("/verify", userController.VerifyAdminUserHandler) // JSON body: { "userID" }
+			adminUsers.POST("/unverify", userController.UnverifyUserHandler) // JSON body: { "userID" }
+			adminUsers.POST("/ban", userController.BanUserHandler) // JSON body: { "userID", "banType", "banReason", "banExpiry" }
+			adminUsers.POST("/unban", userController.UnbanUserHandler) // JSON body: { "userID" }
+			adminUsers.GET("/ban-history", userController.BanHistoryHandler) // ?userID=uuid
 		}
 	}
 }
