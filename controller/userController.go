@@ -2,12 +2,14 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
 
 	"xcode/middleware"
 	"xcode/model"
 
-	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+
+	"github.com/gin-gonic/gin"
 )
 
 // UserController handles user-related API requests
@@ -59,17 +61,16 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 	}
 
 	registerUserRequest := &AuthUserAdminService.RegisterUserRequest{
-		FirstName:           req.FirstName,
-		LastName:            req.LastName,
-		Country:             req.Country,
-		Role:                req.Role,
-		PrimaryLanguageID:   req.PrimaryLanguageID,
-		SecondaryLanguageID: req.SecondaryLanguageID,
-		Email:               req.Email,
-		AuthType:            req.AuthType,
-		Password:            req.Password,
-		ConfirmPassword:     req.ConfirmPassword,
-		MuteNotifications:   req.MuteNotifications,
+		FirstName:         req.FirstName,
+		LastName:          req.LastName,
+		Country:           req.Country,
+		Role:              req.Role,
+		PrimaryLanguageID: req.PrimaryLanguageID,
+		Email:             req.Email,
+		AuthType:          req.AuthType,
+		Password:          req.Password,
+		ConfirmPassword:   req.ConfirmPassword,
+		MuteNotifications: req.MuteNotifications,
 		Socials: &AuthUserAdminService.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
@@ -580,13 +581,12 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 	}
 
 	updateProfileRequest := &AuthUserAdminService.UpdateProfileRequest{
-		UserID:              req.UserID,
-		FirstName:           req.FirstName,
-		LastName:            req.LastName,
-		Country:             req.Country,
-		PrimaryLanguageID:   req.PrimaryLanguageID,
-		SecondaryLanguageID: req.SecondaryLanguageID,
-		MuteNotifications:   req.MuteNotifications,
+		UserID:            req.UserID,
+		FirstName:         req.FirstName,
+		LastName:          req.LastName,
+		Country:           req.Country,
+		PrimaryLanguageID: req.PrimaryLanguageID,
+		MuteNotifications: req.MuteNotifications,
 		Socials: &AuthUserAdminService.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
@@ -703,15 +703,19 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: map[string]interface{}{
-			"firstName": resp.FirstName,
-			"lastName":  resp.LastName,
-			"country":   resp.Country,
-			"email":     resp.Email,
-			"role":      resp.Role,
+			"userID":            resp.UserProfile.UserID,
+			"userName":          resp.UserProfile.UserName,
+			"firstName":         resp.UserProfile.FirstName,
+			"lastName":          resp.UserProfile.LastName,
+			"country":           resp.UserProfile.Country,
+			"avatarURL":         resp.UserProfile.AvatarURL,
+			"primaryLanguageID": resp.UserProfile.PrimaryLanguageID,
+			"email":             resp.UserProfile.Email,
+			"role":              resp.UserProfile.Role,
 			"socials": map[string]string{
-				"github":   resp.Socials.Github,
-				"twitter":  resp.Socials.Twitter,
-				"linkedin": resp.Socials.Linkedin,
+				"github":   resp.UserProfile.Socials.Github,
+				"twitter":  resp.UserProfile.Socials.Twitter,
+				"linkedin": resp.UserProfile.Socials.Linkedin,
 			},
 		},
 		Error: nil,
@@ -768,8 +772,8 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 // Social Features
 
 func (uc *UserController) FollowUserHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	followUserID := c.Query("followUserID")
+	if followUserID == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -783,8 +787,23 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 		return
 	}
 
+	userID, exists := c.Get(middleware.EntityIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusUnauthorized,
+				Message: "Failed to get user ID from context",
+				Details: "userID is required",
+			},
+		})
+		return
+	}
 	followUserRequest := &AuthUserAdminService.FollowUserRequest{
-		UserID: userID,
+		FolloweeID: followUserID,
+		FollowerID: userID.(string),
 	}
 
 	resp, err := uc.userClient.FollowUser(c.Request.Context(), followUserRequest)
@@ -812,8 +831,8 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	unfollowUserID := c.Query("unfollowUserID")
+	if unfollowUserID == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -827,8 +846,24 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 		return
 	}
 
+	userID, exists := c.Get(middleware.EntityIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusUnauthorized,
+				Message: "Failed to get user ID from context",
+				Details: "userID is required",
+			},
+		})
+		return
+	}
+
 	unfollowUserRequest := &AuthUserAdminService.UnfollowUserRequest{
-		UserID: userID,
+		FolloweeID: unfollowUserID,
+		FollowerID: userID.(string),
 	}
 
 	resp, err := uc.userClient.UnfollowUser(c.Request.Context(), unfollowUserRequest)
@@ -900,14 +935,20 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 		Payload: map[string]interface{}{
 			"data": func() []map[string]interface{} {
 				var data []map[string]interface{}
-				for _, profile := range resp.Data {
+				for _, profile := range resp.Users {
 					data = append(data, map[string]interface{}{
-						"userID":    profile.UserID,
-						"firstName": profile.FirstName,
-						"lastName":  profile.LastName,
-						"email":     profile.Email,
-						"role":      profile.Role,
-						"status":    profile.Status,
+						"userID":            profile.UserID,
+						"userName":          profile.UserName,
+						"firstName":         profile.FirstName,
+						"lastName":          profile.LastName,
+						"email":             profile.Email,
+						"role":              profile.Role,
+						"status":            profile.Status,
+						"avatarURL":         profile.AvatarURL,
+						"country":           profile.Country,
+						"primaryLanguageID": profile.PrimaryLanguageID,
+						"createdAt":         profile.CreatedAt,
+						"isBanned":          profile.IsBanned,
 						"socials": map[string]string{
 							"github":   profile.Socials.Github,
 							"twitter":  profile.Socials.Twitter,
@@ -967,14 +1008,20 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 		Payload: map[string]interface{}{
 			"data": func() []map[string]interface{} {
 				var data []map[string]interface{}
-				for _, profile := range resp.Data {
+				for _, profile := range resp.Users {
 					data = append(data, map[string]interface{}{
-						"userID":    profile.UserID,
-						"firstName": profile.FirstName,
-						"lastName":  profile.LastName,
-						"email":     profile.Email,
-						"role":      profile.Role,
-						"status":    profile.Status,
+						"userID":            profile.UserID,
+						"userName":          profile.UserName,
+						"firstName":         profile.FirstName,
+						"lastName":          profile.LastName,
+						"email":             profile.Email,
+						"role":              profile.Role,
+						"status":            profile.Status,
+						"country":           profile.Country,
+						"avatarURL":         profile.AvatarURL,
+						"primaryLanguageID": profile.PrimaryLanguageID,
+						"createdAt":         profile.CreatedAt,
+						"isBanned":          profile.IsBanned,
 						"socials": map[string]string{
 							"github":   profile.Socials.Github,
 							"twitter":  profile.Socials.Twitter,
@@ -1008,22 +1055,21 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 	}
 
 	createUserAdminRequest := &AuthUserAdminService.CreateUserAdminRequest{
-		FirstName:           req.FirstName,
-		LastName:            req.LastName,
-		Country:             req.Country,
-		Role:                req.Role,
-		PrimaryLanguageID:   req.PrimaryLanguageID,
-		SecondaryLanguageID: req.SecondaryLanguageID,
-		Email:               req.Email,
-		AuthType:            req.AuthType,
-		Password:            req.Password,
-		ConfirmPassword:     req.ConfirmPassword,
-		MuteNotifications:   req.MuteNotifications,
-		Socials: &AuthUserAdminService.Socials{
-			Github:   req.Socials.Github,
-			Twitter:  req.Socials.Twitter,
-			Linkedin: req.Socials.Linkedin,
-		},
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		// Country:             req.Country,
+		Role: req.Role,
+		// PrimaryLanguageID:   req.PrimaryLanguageID,
+		Email:           req.Email,
+		AuthType:        req.AuthType,
+		Password:        req.Password,
+		ConfirmPassword: req.ConfirmPassword,
+		// MuteNotifications:   req.MuteNotifications,
+		// Socials: &AuthUserAdminService.Socials{
+		// 	Github:   req.Socials.Github,
+		// 	Twitter:  req.Socials.Twitter,
+		// 	Linkedin: req.Socials.Linkedin,
+		// },
 	}
 
 	resp, err := uc.userClient.CreateUserAdmin(c.Request.Context(), createUserAdminRequest)
@@ -1083,16 +1129,15 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 	}
 
 	updateUserAdminRequest := &AuthUserAdminService.UpdateUserAdminRequest{
-		UserID:              userID,
-		FirstName:           req.FirstName,
-		LastName:            req.LastName,
-		Country:             req.Country,
-		Role:                req.Role,
-		Email:               req.Email,
-		Password:            req.Password,
-		PrimaryLanguageID:   req.PrimaryLanguageID,
-		SecondaryLanguageID: req.SecondaryLanguageID,
-		MuteNotifications:   req.MuteNotifications,
+		UserID:            userID,
+		FirstName:         req.FirstName,
+		LastName:          req.LastName,
+		Country:           req.Country,
+		Role:              req.Role,
+		Email:             req.Email,
+		Password:          req.Password,
+		PrimaryLanguageID: req.PrimaryLanguageID,
+		MuteNotifications: req.MuteNotifications,
 		Socials: &AuthUserAdminService.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
@@ -1387,6 +1432,169 @@ func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 			}(),
 			"totalCount": resp.TotalCount,
 			"message":    resp.Message,
+		},
+		Error: nil,
+	})
+}
+
+// User Management (Add BanHistoryHandler)
+func (uc *UserController) BanHistoryHandler(c *gin.Context) {
+	ctxUserID, exists := c.Get(middleware.EntityIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusUnauthorized,
+				Message: "Failed to get user ID from context",
+				Details: "userID is required",
+			},
+		})
+		return
+	}
+	
+	userID := c.Query("userID")
+	if userID == "" && ctxUserID.(string) == "" {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusBadRequest,
+				Message: "Missing userID query parameter",
+				Details: "userID is required",
+			},
+		})
+		return
+	}
+
+	if userID == "" {
+		userID = ctxUserID.(string)
+	}
+
+	banHistoryRequest := &AuthUserAdminService.BanHistoryRequest{
+		UserID: userID,
+	}
+
+	resp, err := uc.userClient.BanHistory(c.Request.Context(), banHistoryRequest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusInternalServerError,
+				Message: "Ban history retrieval failed",
+				Details: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: map[string]interface{}{
+			"bans": func() []map[string]interface{} {
+				var bans []map[string]interface{}
+				for _, ban := range resp.Bans {
+					bans = append(bans, map[string]interface{}{
+						"userID":    ban.UserID,
+						"banReason": ban.BanReason,
+						"banExpiry": ban.BanExpiry,
+						"createdAt": ban.CreatedAt,
+					})
+				}
+				return bans
+			}(),
+			"message": resp.Message,
+		},
+		Error: nil,
+	})
+}
+
+// Social Features (Add SearchUsersHandler)
+func (uc *UserController) SearchUsersHandler(c *gin.Context) {
+	query := c.Query("query")
+	pageToken := c.Query("pageToken")
+	limitStr := c.Query("limit")
+
+	// Default limit if not provided
+	limit := int32(10)
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = int32(l)
+		}
+	}
+
+	if query == "" {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusBadRequest,
+				Message: "Missing query parameter",
+				Details: "query is required",
+			},
+		})
+		return
+	}
+
+	searchUsersRequest := &AuthUserAdminService.SearchUsersRequest{
+		Query:     query,
+		PageToken: pageToken,
+		Limit:     limit,
+	}
+
+	resp, err := uc.userClient.SearchUsers(c.Request.Context(), searchUsersRequest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusInternalServerError,
+				Message: "Search users failed",
+				Details: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: map[string]interface{}{
+			"users": func() []map[string]interface{} {
+				var users []map[string]interface{}
+				for _, profile := range resp.Users {
+					users = append(users, map[string]interface{}{
+						"userID":            profile.UserID,
+						"userName":          profile.UserName,
+						"firstName":         profile.FirstName,
+						"lastName":          profile.LastName,
+						"email":             profile.Email,
+						"role":              profile.Role,
+						"status":            profile.Status,
+						"avatarURL":         profile.AvatarURL,
+						"country":           profile.Country,
+						"primaryLanguageID": profile.PrimaryLanguageID,
+						"createdAt":         profile.CreatedAt,
+						"isBanned":          profile.IsBanned,
+						"socials": map[string]string{
+							"github":   profile.Socials.Github,
+							"twitter":  profile.Socials.Twitter,
+							"linkedin": profile.Socials.Linkedin,
+						},
+					})
+				}
+				return users
+			}(),
+			"totalCount":    resp.TotalCount,
+			"nextPageToken": resp.NextPageToken,
+			"message":       resp.Message,
 		},
 		Error: nil,
 	})
