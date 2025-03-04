@@ -10,14 +10,15 @@ type UserProfile struct {
     AvatarURL         string  `json:"avatarURL"`
     Email             string  `json:"email"`
     Role              string  `json:"role"`
-    Status            string  `json:"status"`
     Country           string  `json:"country"`
     IsBanned          bool    `json:"isBanned"`
+    IsVerified        bool    `json:"isVerified"`
     PrimaryLanguageID string  `json:"primaryLanguageID"`
     MuteNotifications bool    `json:"muteNotifications"`
     Socials           Socials `json:"socials"`
     CreatedAt         int64   `json:"createdAt"`
 }
+
 
 // BanHistory represents a single ban record
 type BanHistory struct {
@@ -67,7 +68,7 @@ type LogoutResponse struct {
     Message string `json:"message"`
 }
 
-type ResendOTPResponse struct {
+type ResendEmailVerificationResponse struct {
     Message string `json:"message"`
 }
 

@@ -33,7 +33,7 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 		auth.POST("/login", userController.LoginUserHandler)
 		auth.POST("/token/refresh", userController.TokenRefreshHandler)
 		auth.GET("/verify", userController.VerifyUserHandler)       // ?userID=uuid&token=123456
-		auth.GET("/otp/resend", userController.ResendOTPHandler)    // ?userID=uuid
+		auth.GET("/verify/resend", userController.ResendEmailVerificationHandler)    // ?email=user@example.com
 		auth.GET("/password/forgot", userController.ForgotPasswordHandler) // ?email=user@example.com
 		// Updated to use JSON body for sensitive data instead of query parameters
 		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "userID", "token", "newPassword", "confirmPassword" }

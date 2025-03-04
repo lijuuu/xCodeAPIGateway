@@ -11,16 +11,16 @@ type Socials struct {
 type RegisterUserRequest struct {
     FirstName        string   `json:"firstName"`
     LastName         string   `json:"lastName"`
-    Country          string   `json:"country"`
-    Role             string   `json:"role"`
-    PrimaryLanguageID string  `json:"primaryLanguageID"`
+    // Country          string   `json:"country"`
+    // Role             string   `json:"role"`
+    // PrimaryLanguageID string  `json:"primaryLanguageID"`
     Email            string   `json:"email"`
     AuthType         string   `json:"authType"`
     Password         string   `json:"password"`
     ConfirmPassword  string   `json:"confirmPassword"`
-    MuteNotifications bool    `json:"muteNotifications"`
-    Socials          Socials  `json:"socials"`
-    TwoFactorAuth    bool     `json:"twoFactorAuth"`
+    // MuteNotifications bool    `json:"muteNotifications"`
+    // Socials          Socials  `json:"socials"`
+    // TwoFactorAuth    bool     `json:"twoFactorAuth"`
 }
 
 // LoginUserRequest for POST /api/v1/auth/login (JSON body)

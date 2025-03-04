@@ -62,6 +62,10 @@ github.com/lijuuu/GlobalProtoXcode v0.0.0-20250227125513-36da5976d2b0 h1:eQqKhIw
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250227125513-36da5976d2b0/go.mod h1:LtB4zCv4uCT722mZkbuKBzZAoyLkeKgDDXEE5nr2cLk=
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250227130933-5ac6475a8bc3 h1:3s6I5VNW3g1eT7nhxEX4ZN4j8iVjkJg64kxDnU+UJD8=
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250227130933-5ac6475a8bc3/go.mod h1:LtB4zCv4uCT722mZkbuKBzZAoyLkeKgDDXEE5nr2cLk=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250304105438-89fdce96a83f h1:b87NxCfzC0EuncbIl99cf4rKVaEhGz07z4qn1ycjRKc=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250304105438-89fdce96a83f/go.mod h1:LtB4zCv4uCT722mZkbuKBzZAoyLkeKgDDXEE5nr2cLk=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250304124659-612de4d8ccdf h1:KG9H4dJEpcanhKQf9FtqjpOwvIhfWWmN1zUo1lD/pl0=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250304124659-612de4d8ccdf/go.mod h1:LtB4zCv4uCT722mZkbuKBzZAoyLkeKgDDXEE5nr2cLk=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
