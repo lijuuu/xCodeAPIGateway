@@ -13,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
+
 func main() {
 	// Load environment variables
 	config := config.LoadConfig()
@@ -37,6 +38,7 @@ func main() {
 		}
 		c.Next()
 	})
+	
 
 	ginRouter.Use(utils.CorsMiddleware())
 

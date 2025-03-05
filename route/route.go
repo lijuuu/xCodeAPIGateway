@@ -7,10 +7,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // SetupRoutes initializes all API routes with middleware and controllers under /api/v1/
 func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecret string) {
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/docs/openapi.yaml")))
+	router.StaticFile("/docs/openapi.yaml", "./openapi.yaml")
+
 	// Initialize gRPC client and controllers
 	userClient := AuthUserAdminService.NewAuthUserAdminServiceClient(clients.ConnUser)
 	userController := controller.NewUserController(userClient)
@@ -32,9 +38,9 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 		auth.POST("/register", userController.RegisterUserHandler)
 		auth.POST("/login", userController.LoginUserHandler)
 		auth.POST("/token/refresh", userController.TokenRefreshHandler)
-		auth.GET("/verify", userController.VerifyUserHandler)       // ?userID=uuid&token=123456
-		auth.GET("/verify/resend", userController.ResendEmailVerificationHandler)    // ?email=user@example.com
-		auth.GET("/password/forgot", userController.ForgotPasswordHandler) // ?email=user@example.com
+		auth.GET("/verify", userController.VerifyUserHandler)                     // ?userID=uuid&token=123456
+		auth.GET("/verify/resend", userController.ResendEmailVerificationHandler) // ?email=user@example.com
+		auth.GET("/password/forgot", userController.ForgotPasswordHandler)        // ?email=user@example.com
 		// Updated to use JSON body for sensitive data instead of query parameters
 		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "userID", "token", "newPassword", "confirmPassword" }
 	}
@@ -62,8 +68,8 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		// Social follow system
 		follow := users.Group("/follow")
 		{
-			follow.POST("", userController.FollowUserHandler)      // ?followeeID=uuid (followerID from JWT)
-			follow.DELETE("", userController.UnfollowUserHandler)  // ?followeeID=uuid (followerID from JWT)
+			follow.POST("", userController.FollowUserHandler)            // ?followeeID=uuid (followerID from JWT)
+			follow.DELETE("", userController.UnfollowUserHandler)        // ?followeeID=uuid (followerID from JWT)
 			follow.GET("/following", userController.GetFollowingHandler) // ?userID=uuid (optional)&pageToken=abc&limit=10
 			follow.GET("/followers", userController.GetFollowersHandler) // ?userID=uuid (optional)&pageToken=abc&limit=10
 		}
@@ -95,15 +101,15 @@ func setupAdminRoutes(apiV1 *gin.RouterGroup, userController *controller.UserCon
 			middleware.RoleAuthMiddleware(middleware.RoleAdmin),
 		)
 		{
-			adminUsers.GET("", userController.GetAllUsersHandler) // ?pageToken=abc&limit=10&roleFilter=USER&statusFilter=active
-			adminUsers.POST("", userController.CreateUserAdminHandler) // JSON body
-			adminUsers.PUT("/update", userController.UpdateUserAdminHandler) // JSON body: { "userID", ... }
+			adminUsers.GET("", userController.GetAllUsersHandler)                        // ?pageToken=abc&limit=10&roleFilter=USER&statusFilter=active
+			adminUsers.POST("", userController.CreateUserAdminHandler)                   // JSON body
+			adminUsers.PUT("/update", userController.UpdateUserAdminHandler)             // JSON body: { "userID", ... }
 			adminUsers.DELETE("/soft-delete", userController.SoftDeleteUserAdminHandler) // JSON body: { "userID" }
-			adminUsers.POST("/verify", userController.VerifyAdminUserHandler) // JSON body: { "userID" }
-			adminUsers.POST("/unverify", userController.UnverifyUserHandler) // JSON body: { "userID" }
-			adminUsers.POST("/ban", userController.BanUserHandler) // JSON body: { "userID", "banType", "banReason", "banExpiry" }
-			adminUsers.POST("/unban", userController.UnbanUserHandler) // JSON body: { "userID" }
-			adminUsers.GET("/ban-history", userController.BanHistoryHandler) // ?userID=uuid
+			adminUsers.POST("/verify", userController.VerifyAdminUserHandler)            // JSON body: { "userID" }
+			adminUsers.POST("/unverify", userController.UnverifyUserHandler)             // JSON body: { "userID" }
+			adminUsers.POST("/ban", userController.BanUserHandler)                       // JSON body: { "userID", "banType", "banReason", "banExpiry" }
+			adminUsers.POST("/unban", userController.UnbanUserHandler)                   // JSON body: { "userID" }
+			adminUsers.GET("/ban-history", userController.BanHistoryHandler)             // ?userID=uuid
 		}
 	}
 }

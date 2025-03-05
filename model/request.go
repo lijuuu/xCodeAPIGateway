@@ -15,7 +15,7 @@ type RegisterUserRequest struct {
     // Role             string   `json:"role"`
     // PrimaryLanguageID string  `json:"primaryLanguageID"`
     Email            string   `json:"email"`
-    AuthType         string   `json:"authType"`
+    // AuthType         string   `json:"authType"`
     Password         string   `json:"password"`
     ConfirmPassword  string   `json:"confirmPassword"`
     // MuteNotifications bool    `json:"muteNotifications"`
@@ -52,7 +52,7 @@ type VerifyUserRequest struct {
 
 // ToggleTwoFactorAuthRequest for POST /api/v1/auth/2fa (JSON body)
 type ToggleTwoFactorAuthRequest struct {
-    UserID        string `json:"userID"`
+    // UserID        string `json:"userID"`
     Password      string `json:"password"`
     TwoFactorAuth bool   `json:"twoFactorAuth"`
 }
@@ -64,7 +64,7 @@ type ForgotPasswordRequest struct {
 
 // FinishForgotPasswordRequest for POST /api/v1/auth/password/reset (JSON body)
 type FinishForgotPasswordRequest struct {
-    UserID          string `json:"userID"`
+    Email           string `json:"email"`
     Token           string `json:"token"`
     NewPassword     string `json:"newPassword"`
     ConfirmPassword string `json:"confirmPassword"`
@@ -72,7 +72,7 @@ type FinishForgotPasswordRequest struct {
 
 // ChangePasswordRequest for POST /api/v1/auth/password/change (JSON body)
 type ChangePasswordRequest struct {
-    UserID          string `json:"userID"`
+    // UserID          string `json:"userID"`
     OldPassword     string `json:"oldPassword"`
     NewPassword     string `json:"newPassword"`
     ConfirmPassword string `json:"confirmPassword"`
@@ -86,7 +86,7 @@ type LoginAdminRequest struct {
 
 // UpdateProfileRequest for PUT /api/v1/users/profile (JSON body)
 type UpdateProfileRequest struct {
-    UserID            string  `json:"userID"`
+    // UserID            string  `json:"userID"`
     UserName          string  `json:"userName"`
     FirstName         string  `json:"firstName"`
     LastName          string  `json:"lastName"`
@@ -98,7 +98,6 @@ type UpdateProfileRequest struct {
 
 // UpdateProfileImageRequest for PUT /api/v1/users/profile/image (JSON body)
 type UpdateProfileImageRequest struct {
-    UserID    string `json:"userID"`
     AvatarURL string `json:"avatarURL"`
 }
 

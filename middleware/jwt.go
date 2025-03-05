@@ -25,8 +25,9 @@ type Claims struct {
 
 // Context keys
 const (
-	EntityIDKey = "entityID" // Lowercase for consistency
-	RoleKey     = "role"     // Lowercase for consistency
+	EntityIDKey = "entityID" 
+	RoleKey     = "role"   
+	JWTToken    = "jwtToken" 
 )
 
 // Role constants
@@ -35,10 +36,22 @@ const (
 	RoleUser  = "USER"
 )
 
+var RevokedToken = make(map[string]struct{})
+
+func CheckRevokedToken(token string) bool {
+	_, ok := RevokedToken[token]
+	return ok
+}
+
+func RevokeToken(token string) {
+	fmt.Println("RevokeToken ", token)
+	RevokedToken[token] = struct{}{}
+}
+
 // JWTAuthMiddleware handles JWT authentication
 func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	fmt.Println("JWTAuthMiddleware ", jwtSecret)
-	logger := logrus.New() // Use logrus for consistency
+	logger := logrus.New() 
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -70,6 +83,19 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
+		if CheckRevokedToken(tokenString) {
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusUnauthorized,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusUnauthorized,
+					Message: "Token is revoked",
+				},
+			})
+			c.Abort()
+		}
+
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -95,6 +121,7 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 
 		// Expiration already checked by jwt.ParseWithClaims, no need for extra check
 		c.Set(EntityIDKey, claims.ID)
+		c.Set(JWTToken, tokenString)
 		c.Set(RoleKey, claims.Role)
 
 		logger.Printf("JWT validated - Path: %s, EntityID: %v, Role: %v", c.Request.URL.Path, claims.ID, claims.Role)
@@ -162,7 +189,7 @@ func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 // UserBanCheckMiddleware checks if a user is banned
 func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminServiceClient) gin.HandlerFunc {
 	logger := logrus.New()
-	const timeout = 10 * time.Second // Could be made configurable
+	const timeout = 10 * time.Second 
 	return func(c *gin.Context) {
 		if userClient == nil {
 			logger.Errorf("User client is nil")

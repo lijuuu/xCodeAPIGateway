@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -48,10 +49,10 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 	}
 
 	registerUserRequest := &AuthUserAdminService.RegisterUserRequest{
-		FirstName:       req.FirstName,
-		LastName:        req.LastName,
-		Email:           req.Email,
-		AuthType:        req.AuthType,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Email:     req.Email,
+		// AuthType:        req.AuthType,
 		Password:        req.Password,
 		ConfirmPassword: req.ConfirmPassword,
 	}
@@ -112,7 +113,7 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 	if err != nil {
 		grpcError, _ := status.FromError(err)
 		httpcode := http.StatusForbidden
-		
+
 		if grpcError.Code() == codes.Unauthenticated {
 			httpcode = http.StatusUnauthorized
 		}
@@ -246,23 +247,28 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 }
 
 func (uc *UserController) LogoutUserHandler(c *gin.Context) {
-	var req model.LogoutRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
-			},
-		})
-		return
-	}
+	// var req model.LogoutRequest
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	c.JSON(http.StatusBadRequest, model.GenericResponse{
+	// 		Success: false,
+	// 		Status:  http.StatusBadRequest,
+	// 		Payload: nil,
+	// 		Error: &model.ErrorInfo{
+	// 			Code:    http.StatusBadRequest,
+	// 			Message: "Invalid request",
+	// 			Details: err.Error(),
+	// 		},
+	// 	})
+	// 	return
+	// }
+
+	userID, _ := c.Get(middleware.EntityIDKey)
+	jwtToken, _ := c.Get(middleware.JWTToken)
+
+	middleware.RevokeToken(jwtToken.(string))
 
 	logoutRequest := &AuthUserAdminService.LogoutRequest{
-		UserID: req.UserID,
+		UserID: userID.(string),
 	}
 
 	resp, err := uc.userClient.LogoutUser(c.Request.Context(), logoutRequest)
@@ -362,12 +368,12 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 	resp, err := uc.userClient.VerifyUser(c.Request.Context(), verifyUserRequest)
 	if err != nil {
 		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
+				Code:    http.StatusBadRequest,
 				Message: "Verification failed",
 				Details: grpcError.Message(),
 			},
@@ -401,8 +407,13 @@ func (uc *UserController) SetTwoFactorAuthHandler(c *gin.Context) {
 		return
 	}
 
+	fmt.Println("req", req)
+
+	userID, _ := c.Get(middleware.EntityIDKey)
+
 	setTwoFactorAuthRequest := &AuthUserAdminService.ToggleTwoFactorAuthRequest{
-		UserID:        req.UserID,
+		UserID:        userID.(string),
+		Password:      req.Password,
 		TwoFactorAuth: req.TwoFactorAuth,
 	}
 
@@ -455,12 +466,12 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 	resp, err := uc.userClient.ForgotPassword(c.Request.Context(), forgotPasswordRequest)
 	if err != nil {
 		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
+				Code:    http.StatusBadRequest,
 				Message: "Password recovery failed",
 				Details: grpcError.Message(),
 			},
@@ -496,7 +507,7 @@ func (uc *UserController) FinishForgotPasswordHandler(c *gin.Context) {
 	}
 
 	finishForgotPasswordRequest := &AuthUserAdminService.FinishForgotPasswordRequest{
-		UserID:          req.UserID,
+		Email:           req.Email,
 		Token:           req.Token,
 		NewPassword:     req.NewPassword,
 		ConfirmPassword: req.ConfirmPassword,
@@ -544,8 +555,24 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get(middleware.EntityIDKey)
+
+	if req.OldPassword == req.NewPassword || req.NewPassword != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusBadRequest,
+				Message: "Password mismatch",
+				Details: "old password, new password, and confirm password must be different",
+			},
+		})
+		return
+	}
+
 	changePasswordRequest := &AuthUserAdminService.ChangePasswordRequest{
-		UserID:          req.UserID,
+		UserID:          userID.(string),
 		OldPassword:     req.OldPassword,
 		NewPassword:     req.NewPassword,
 		ConfirmPassword: req.ConfirmPassword,
@@ -594,8 +621,24 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		return
 	}
 
+	userID, exists := c.Get(middleware.EntityIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusUnauthorized,
+				Message: "Failed to get user ID",
+				Details: "userID is required",
+			},
+		})
+		return
+	}
+
 	updateProfileRequest := &AuthUserAdminService.UpdateProfileRequest{
-		UserID:            req.UserID,
+		UserID:            userID.(string),
+		UserName:          req.UserName,
 		FirstName:         req.FirstName,
 		LastName:          req.LastName,
 		Country:           req.Country,
@@ -609,6 +652,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 	}
 
 	resp, err := uc.userClient.UpdateProfile(c.Request.Context(), updateProfileRequest)
+	fmt.Println("resp", resp)
 	if err != nil {
 		grpcError, _ := status.FromError(err)
 		c.JSON(http.StatusInternalServerError, model.GenericResponse{
@@ -651,8 +695,23 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 		return
 	}
 
+	userID, exists := c.Get(middleware.EntityIDKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusUnauthorized,
+				Message: "Failed to get user ID",
+				Details: "userID is required",
+			},
+		})
+		return
+	}
+
 	updateProfileImageRequest := &AuthUserAdminService.UpdateProfileImageRequest{
-		UserID:    req.UserID,
+		UserID:    userID.(string),
 		AvatarURL: req.AvatarURL,
 	}
 
@@ -907,7 +966,7 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 	userID := c.Query("userID")
 	if userID == "" {
-		if jwtUserID, exists := c.Get("userID"); exists {
+		if jwtUserID, exists := c.Get(middleware.EntityIDKey); exists {
 			userID = jwtUserID.(string)
 		} else {
 			c.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -960,7 +1019,7 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 	userID := c.Query("userID")
 	if userID == "" {
-		if jwtUserID, exists := c.Get("userID"); exists {
+		if jwtUserID, exists := c.Get(middleware.EntityIDKey); exists {
 			userID = jwtUserID.(string)
 		} else {
 			c.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1550,7 +1609,7 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 		UserName:          protoProfile.UserName,
 		FirstName:         protoProfile.FirstName,
 		LastName:          protoProfile.LastName,
-		AvatarURL:         protoProfile.AvatarURL,
+		AvatarURL:         protoProfile.AvatarData,
 		Email:             protoProfile.Email,
 		Role:              protoProfile.Role,
 		Country:           protoProfile.Country,
