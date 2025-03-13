@@ -1,16 +1,17 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 
+	"xcode/customerrors"
 	"xcode/middleware"
 	"xcode/model"
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
-	codes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -31,6 +32,45 @@ func (uc *UserController) GetUserClient() AuthUserAdminService.AuthUserAdminServ
 	return uc.userClient
 }
 
+// parseGrpcError extracts ErrorType, Code, and Details from the gRPC error message
+func parseGrpcError(errorMessage string) (string, codes.Code, string) {
+	// Default values
+	errorType := customerrors.ERR_GRPC_ERROR
+	code := codes.Internal
+	details := errorMessage
+
+	// Regular expression to match "ErrorType: <type>, Code: <code>, Details: <details>"
+	re := regexp.MustCompile(`ErrorType: ([^,]+), Code: (\d+), Details: (.+)`)
+	matches := re.FindStringSubmatch(errorMessage)
+	if len(matches) == 4 {
+		errorType = matches[1]
+		if codeNum, err := strconv.Atoi(matches[2]); err == nil {
+			code = codes.Code(codeNum)
+		}
+		details = matches[3]
+	}
+
+	return errorType, code, details
+}
+
+// mapGrpcCodeToHttp maps gRPC codes to HTTP status codes
+func mapGrpcCodeToHttp(code codes.Code) int {
+	switch code {
+	case codes.InvalidArgument:
+		return http.StatusBadRequest
+	case codes.NotFound:
+		return http.StatusNotFound
+	case codes.Unauthenticated:
+		return http.StatusUnauthorized
+	case codes.PermissionDenied:
+		return http.StatusForbidden
+	case codes.Internal:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
 // Authentication and Security
 func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 	var req model.RegisterUserRequest
@@ -40,34 +80,38 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
 	}
 
 	registerUserRequest := &AuthUserAdminService.RegisterUserRequest{
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Email:     req.Email,
-		// AuthType:        req.AuthType,
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		Email:           req.Email,
 		Password:        req.Password,
 		ConfirmPassword: req.ConfirmPassword,
 	}
 
 	resp, err := uc.userClient.RegisterUser(c.Request.Context(), registerUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, _, details := parseGrpcError(grpcStatus.Message())
+		// httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Registration failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      http.StatusBadRequest,
+				Message:   "Registration failed",
+				Details:   details,
 			},
 		})
 		return
@@ -96,36 +140,36 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
 	}
 
 	loginUserRequest := &AuthUserAdminService.LoginUserRequest{
-		Email:    req.Email,
-		Password: req.Password,
+		Email:         req.Email,
+		Password:      req.Password,
+		TwoFactorCode: req.Code,
 	}
 
 	resp, err := uc.userClient.LoginUser(c.Request.Context(), loginUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		httpcode := http.StatusForbidden
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
 
-		if grpcError.Code() == codes.Unauthenticated {
-			httpcode = http.StatusUnauthorized
-		}
-
-		c.JSON(httpcode, model.GenericResponse{
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  httpcode,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    httpcode,
-				Message: "Login failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Login failed",
+				Details:   details,
 			},
 		})
 		return
@@ -154,9 +198,10 @@ func (uc *UserController) LoginAdminHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -169,15 +214,19 @@ func (uc *UserController) LoginAdminHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.LoginAdmin(c.Request.Context(), loginAdminRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusUnauthorized,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Admin login failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Admin login failed",
+				Details:   details,
 			},
 		})
 		return
@@ -205,9 +254,10 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -219,15 +269,19 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.TokenRefresh(c.Request.Context(), tokenRefreshRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusUnauthorized,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Token refresh failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Token refresh failed",
+				Details:   details,
 			},
 		})
 		return
@@ -247,21 +301,6 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 }
 
 func (uc *UserController) LogoutUserHandler(c *gin.Context) {
-	// var req model.LogoutRequest
-	// if err := c.ShouldBindJSON(&req); err != nil {
-	// 	c.JSON(http.StatusBadRequest, model.GenericResponse{
-	// 		Success: false,
-	// 		Status:  http.StatusBadRequest,
-	// 		Payload: nil,
-	// 		Error: &model.ErrorInfo{
-	// 			Code:    http.StatusBadRequest,
-	// 			Message: "Invalid request",
-	// 			Details: err.Error(),
-	// 		},
-	// 	})
-	// 	return
-	// }
-
 	userID, _ := c.Get(middleware.EntityIDKey)
 	jwtToken, _ := c.Get(middleware.JWTToken)
 
@@ -273,15 +312,19 @@ func (uc *UserController) LogoutUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.LogoutUser(c.Request.Context(), logoutRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Logout failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Logout failed",
+				Details:   details,
 			},
 		})
 		return
@@ -305,9 +348,10 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing email query parameter",
-				Details: "email is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing email query parameter",
+				Details:   "email is required",
 			},
 		})
 		return
@@ -319,15 +363,19 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.ResendEmailVerification(c.Request.Context(), resendEmailVerificationRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusBadRequest, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusBadRequest,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Email verification resend failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Email verification resend failed",
+				Details:   details,
 			},
 		})
 		return
@@ -353,9 +401,10 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing email or token query parameter",
-				Details: "email and token are required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing email or token query parameter",
+				Details:   "email and token are required",
 			},
 		})
 		return
@@ -368,15 +417,19 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.VerifyUser(c.Request.Context(), verifyUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusBadRequest, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusBadRequest,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Verification failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Verification failed",
+				Details:   details,
 			},
 		})
 		return
@@ -392,58 +445,6 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 	})
 }
 
-// func (uc *UserController) SetTwoFactorAuthHandler(c *gin.Context) {
-// 	var req model.ToggleTwoFactorAuthRequest
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		c.JSON(http.StatusBadRequest, model.GenericResponse{
-// 			Success: false,
-// 			Status:  http.StatusBadRequest,
-// 			Payload: nil,
-// 			Error: &model.ErrorInfo{
-// 				Code:    http.StatusBadRequest,
-// 				Message: "Invalid request",
-// 				Details: err.Error(),
-// 			},
-// 		})
-// 		return
-// 	}
-
-// 	fmt.Println("req", req)
-
-// 	userID, _ := c.Get(middleware.EntityIDKey)
-
-// 	setTwoFactorAuthRequest := &AuthUserAdminService.ToggleTwoFactorAuthRequest{
-// 		UserID:        userID.(string),
-// 		Password:      req.Password,
-// 		TwoFactorAuth: req.TwoFactorAuth,
-// 	}
-
-// 	resp, err := uc.userClient.ToggleTwoFactorAuth(c.Request.Context(), setTwoFactorAuthRequest)
-// 	if err != nil {
-// 		grpcError, _ := status.FromError(err)
-// 		c.JSON(http.StatusInternalServerError, model.GenericResponse{
-// 			Success: false,
-// 			Status:  http.StatusInternalServerError,
-// 			Payload: nil,
-// 			Error: &model.ErrorInfo{
-// 				Code:    http.StatusInternalServerError,
-// 				Message: "2FA setup failed",
-// 				Details: grpcError.Message(),
-// 			},
-// 		})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, model.GenericResponse{
-// 		Success: true,
-// 		Status:  http.StatusOK,
-// 		Payload: model.ToggleTwoFactorAuthResponse{
-// 			Message: resp.Message,
-// 		},
-// 		Error: nil,
-// 	})
-// }
-
 func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 	var req model.ForgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -452,9 +453,10 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -465,9 +467,10 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing email query parameter",
-				Details: "email is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing email query parameter",
+				Details:   "email is required",
 			},
 		})
 		return
@@ -479,15 +482,19 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.ForgotPassword(c.Request.Context(), forgotPasswordRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusBadRequest, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusBadRequest,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Password recovery failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Password recovery failed",
+				Details:   details,
 			},
 		})
 		return
@@ -512,9 +519,10 @@ func (uc *UserController) FinishForgotPasswordHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -529,15 +537,19 @@ func (uc *UserController) FinishForgotPasswordHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.FinishForgotPassword(c.Request.Context(), finishForgotPasswordRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Password reset failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Password reset failed",
+				Details:   details,
 			},
 		})
 		return
@@ -561,9 +573,10 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -577,9 +590,10 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Password mismatch",
-				Details: "old password, new password, and confirm password must be different",
+				ErrorType: customerrors.ERR_PW_CHANGE_MISMATCH,
+				Code:      http.StatusBadRequest,
+				Message:   "Password mismatch",
+				Details:   "old password, new password, and confirm password must be different",
 			},
 		})
 		return
@@ -594,15 +608,19 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.ChangePassword(c.Request.Context(), changePasswordRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Password change failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Password change failed",
+				Details:   details,
 			},
 		})
 		return
@@ -627,9 +645,10 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -642,9 +661,10 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Failed to get user ID",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -666,17 +686,20 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 	}
 
 	resp, err := uc.userClient.UpdateProfile(c.Request.Context(), updateProfileRequest)
-	fmt.Println("resp", resp)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Profile update failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Profile update failed",
+				Details:   details,
 			},
 		})
 		return
@@ -701,9 +724,10 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -716,9 +740,10 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Failed to get user ID",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -731,15 +756,19 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.UpdateProfileImage(c.Request.Context(), updateProfileImageRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Image update failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Image update failed",
+				Details:   details,
 			},
 		})
 		return
@@ -764,9 +793,10 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Failed to get user ID from context",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID from context",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -778,15 +808,19 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Profile retrieval failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Profile retrieval failed",
+				Details:   details,
 			},
 		})
 		return
@@ -811,9 +845,10 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -825,15 +860,19 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.CheckBanStatus(c.Request.Context(), checkBanStatusRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Ban status check failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Ban status check failed",
+				Details:   details,
 			},
 		})
 		return
@@ -861,9 +900,10 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -876,9 +916,10 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Failed to get user ID from context",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID from context",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -891,15 +932,19 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.FollowUser(c.Request.Context(), followUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Follow failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Follow failed",
+				Details:   details,
 			},
 		})
 		return
@@ -923,9 +968,10 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -938,9 +984,10 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Failed to get user ID from context",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID from context",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -953,15 +1000,19 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.UnfollowUser(c.Request.Context(), unfollowUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Unfollow failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Unfollow failed",
+				Details:   details,
 			},
 		})
 		return
@@ -988,9 +1039,10 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 				Status:  http.StatusBadRequest,
 				Payload: nil,
 				Error: &model.ErrorInfo{
-					Code:    http.StatusBadRequest,
-					Message: "Missing userID query parameter",
-					Details: "userID is required",
+					ErrorType: customerrors.ERR_PARAM_EMPTY,
+					Code:      http.StatusBadRequest,
+					Message:   "Missing userID query parameter",
+					Details:   "userID is required",
 				},
 			})
 			return
@@ -1003,15 +1055,19 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.GetFollowing(c.Request.Context(), getFollowingRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Get following failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Get following failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1041,9 +1097,10 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 				Status:  http.StatusBadRequest,
 				Payload: nil,
 				Error: &model.ErrorInfo{
-					Code:    http.StatusBadRequest,
-					Message: "Missing userID query parameter",
-					Details: "userID is required",
+					ErrorType: customerrors.ERR_PARAM_EMPTY,
+					Code:      http.StatusBadRequest,
+					Message:   "Missing userID query parameter",
+					Details:   "userID is required",
 				},
 			})
 			return
@@ -1056,15 +1113,19 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.GetFollowers(c.Request.Context(), getFollowersRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Get followers failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Get followers failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1092,9 +1153,10 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -1112,15 +1174,19 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.CreateUserAdmin(c.Request.Context(), createUserAdminRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "User creation failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "User creation failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1145,9 +1211,10 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1160,9 +1227,10 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -1187,15 +1255,19 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.UpdateUserAdmin(c.Request.Context(), updateUserAdminRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "User update failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "User update failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1219,9 +1291,10 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -1236,15 +1309,18 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.BanUser(c.Request.Context(), banUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, _ := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Ban failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Ban failed",
 			},
 		})
 		return
@@ -1268,9 +1344,10 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1282,15 +1359,19 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.UnbanUser(c.Request.Context(), unbanUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Unban failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Unban failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1314,9 +1395,10 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1328,15 +1410,19 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.VerifyAdminUser(c.Request.Context(), verifyAdminUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Verification failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Verification failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1360,9 +1446,10 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1374,15 +1461,19 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.UnverifyUser(c.Request.Context(), unverifyUserRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Unverification failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Unverification failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1406,9 +1497,10 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1420,15 +1512,19 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.SoftDeleteUserAdmin(c.Request.Context(), softDeleteUserAdminRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Soft delete failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Soft delete failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1449,15 +1545,19 @@ func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.GetAllUsers(c.Request.Context(), getAllUsersRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Get users failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Get users failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1484,9 +1584,10 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 			Status:  http.StatusUnauthorized,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusUnauthorized,
-				Message: "Failed to get user ID from context",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID from context",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1499,9 +1600,10 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing userID query parameter",
-				Details: "userID is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
 			},
 		})
 		return
@@ -1517,15 +1619,19 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.BanHistory(c.Request.Context(), banHistoryRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Ban history retrieval failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Ban history retrieval failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1560,9 +1666,10 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Missing query parameter",
-				Details: "query is required",
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing query parameter",
+				Details:   "query is required",
 			},
 		})
 		return
@@ -1576,15 +1683,19 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.SearchUsers(c.Request.Context(), searchUsersRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Search users failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Search users failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1603,98 +1714,6 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 	})
 }
 
-// mapUserProfile converts a proto UserProfile to model.UserProfile
-func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
-	if protoProfile == nil {
-		return model.UserProfile{}
-	}
-
-	var socials model.Socials
-	if protoProfile.Socials != nil {
-		socials = model.Socials{
-			Github:   protoProfile.Socials.Github,
-			Twitter:  protoProfile.Socials.Twitter,
-			Linkedin: protoProfile.Socials.Linkedin,
-		}
-	}
-
-	return model.UserProfile{
-		UserID:    protoProfile.UserID,
-		UserName:  protoProfile.UserName,
-		FirstName: protoProfile.FirstName,
-		LastName:  protoProfile.LastName,
-		AvatarURL: protoProfile.AvatarData,
-		Email:     protoProfile.Email,
-		Role:      protoProfile.Role,
-		Country:   protoProfile.Country,
-		// IsBanned:          protoProfile.IsBanned,
-		// IsVerified:        protoProfile.IsVerified,
-		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
-		MuteNotifications: protoProfile.MuteNotifications,
-		Socials:           socials,
-		CreatedAt:         protoProfile.CreatedAt,
-	}
-}
-
-// mapUserProfiles converts a slice of proto UserProfile to a slice of model.UserProfile
-func mapUserProfiles(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {
-	profiles := make([]model.UserProfile, len(protoProfiles))
-	for i, p := range protoProfiles {
-		profiles[i] = mapUserProfile(p)
-	}
-	return profiles
-}
-
-// mapBanHistory converts a proto BanHistory to model.BanHistory
-func mapBanHistory(protoBan *AuthUserAdminService.BanHistory) model.BanHistory {
-	return model.BanHistory{
-		ID:        protoBan.Id,
-		UserID:    protoBan.UserID,
-		BannedAt:  protoBan.BannedAt,
-		BanType:   protoBan.BanType,
-		BanReason: protoBan.BanReason,
-		BanExpiry: protoBan.BanExpiry,
-	}
-}
-
-// mapBanHistories converts a slice of proto BanHistory to a slice of model.BanHistory
-func mapBanHistories(protoBans []*AuthUserAdminService.BanHistory) []model.BanHistory {
-	bans := make([]model.BanHistory, len(protoBans))
-	for i, b := range protoBans {
-		bans[i] = mapBanHistory(b)
-	}
-	return bans
-}
-
-// message SetUpTwoFactorAuthRequest {
-// 	string userID = 1;
-// 	string password = 2;
-// }
-
-// message SetUpTwoFactorAuthResponse {
-// 	string image = 1;
-// 	string secret = 2;
-// 	string message = 3;
-// }
-
-// message DisableTwoFactorAuthRequest {
-// 	string userID = 1;
-// 	string password = 2;
-// }
-
-// message DisableTwoFactorAuthResponse {
-// 	string message = 1;
-// }
-
-// message GetTwoFactorAuthStatusRequest {
-// 	string userID = 1;
-// }
-
-// message GetTwoFactorAuthStatusResponse {
-// 	bool isEnabled = 1;
-// 	string message = 2;
-// }
-
 func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 	var req model.SetUpTwoFactorAuthRequest
 	userID, _ := c.Get(middleware.EntityIDKey)
@@ -1705,9 +1724,10 @@ func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 			Status:  http.StatusBadRequest,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusBadRequest,
-				Message: "Invalid request",
-				Details: err.Error(),
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
 			},
 		})
 		return
@@ -1720,15 +1740,19 @@ func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.SetUpTwoFactorAuth(c.Request.Context(), setUpTwoFactorAuthRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Set up two factor auth failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Set up two factor auth failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1746,19 +1770,21 @@ func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 	})
 }
 
-// func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
-// 	var req model.DisableTwoFactorAuthRequest
-
-// }
-
-func (uc *UserController) GetTwoFactorAuthSetupHandler(c *gin.Context) {
+func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 	email := c.Query("email")
 	if email == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing email query parameter",
+				Details:   "email is required",
+			},
 		})
+		return
 	}
 
 	getTwoFactorAuthStatusRequest := &AuthUserAdminService.GetTwoFactorAuthStatusRequest{
@@ -1767,15 +1793,19 @@ func (uc *UserController) GetTwoFactorAuthSetupHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.GetTwoFactorAuthStatus(c.Request.Context(), getTwoFactorAuthStatusRequest)
 	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "Get two factor auth status failed",
-				Details: grpcError.Message(),
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Get two factor auth status failed",
+				Details:   details,
 			},
 		})
 		return
@@ -1790,4 +1820,116 @@ func (uc *UserController) GetTwoFactorAuthSetupHandler(c *gin.Context) {
 		},
 		Error: nil,
 	})
+}
+
+func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
+	var req model.DisableTwoFactorAuthRequest
+	userID, _ := c.Get(middleware.EntityIDKey)
+	req.UserID = userID.(string)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	deleteTwoFactorAuthRequest := &AuthUserAdminService.DisableTwoFactorAuthRequest{
+		UserID:   req.UserID,
+		Password: req.Password,
+	}
+
+	resp, err := uc.userClient.DisableTwoFactorAuth(c.Request.Context(), deleteTwoFactorAuthRequest)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
+			Success: false,
+			Status:  httpCode,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Delete two factor auth failed",
+				Details:   details,
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: map[string]interface{}{
+			"message": resp.Message,
+		},
+		Error: nil,
+	})
+}
+
+// Mapping functions remain unchanged
+func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
+	if protoProfile == nil {
+		return model.UserProfile{}
+	}
+
+	var socials model.Socials
+	if protoProfile.Socials != nil {
+		socials = model.Socials{
+			Github:   protoProfile.Socials.Github,
+			Twitter:  protoProfile.Socials.Twitter,
+			Linkedin: protoProfile.Socials.Linkedin,
+		}
+	}
+
+	return model.UserProfile{
+		UserID:            protoProfile.UserID,
+		UserName:          protoProfile.UserName,
+		FirstName:         protoProfile.FirstName,
+		LastName:          protoProfile.LastName,
+		AvatarURL:         protoProfile.AvatarData,
+		Email:             protoProfile.Email,
+		Role:              protoProfile.Role,
+		Country:           protoProfile.Country,
+		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
+		MuteNotifications: protoProfile.MuteNotifications,
+		Socials:           socials,
+		CreatedAt:         protoProfile.CreatedAt,
+	}
+}
+
+func mapUserProfiles(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {
+	profiles := make([]model.UserProfile, len(protoProfiles))
+	for i, p := range protoProfiles {
+		profiles[i] = mapUserProfile(p)
+	}
+	return profiles
+}
+
+func mapBanHistory(protoBan *AuthUserAdminService.BanHistory) model.BanHistory {
+	return model.BanHistory{
+		ID:        protoBan.Id,
+		UserID:    protoBan.UserID,
+		BannedAt:  protoBan.BannedAt,
+		BanType:   protoBan.BanType,
+		BanReason: protoBan.BanReason,
+		BanExpiry: protoBan.BanExpiry,
+	}
+}
+
+func mapBanHistories(protoBans []*AuthUserAdminService.BanHistory) []model.BanHistory {
+	bans := make([]model.BanHistory, len(protoBans))
+	for i, b := range protoBans {
+		bans[i] = mapBanHistory(b)
+	}
+	return bans
 }

@@ -27,6 +27,7 @@ type RegisterUserRequest struct {
 type LoginUserRequest struct {
     Email    string `json:"email"`
     Password string `json:"password"`
+    Code     string `json:"code"`
 }
 
 // TokenRefreshRequest for POST /api/v1/auth/token/refresh (JSON body)
@@ -227,3 +228,8 @@ type SetUpTwoFactorAuthRequest struct {
     Password  string `json:"password"`
 }
 
+
+type DisableTwoFactorAuthRequest struct {
+    UserID string `json:"userID"`
+    Password string `json:"password"`
+}

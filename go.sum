@@ -99,6 +99,8 @@ github.com/lijuuu/GlobalProtoXcode v0.0.0-20250313035540-23ab353cddb1 h1:+ZiDeg8
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250313035540-23ab353cddb1/go.mod h1:LtB4zCv4uCT722mZkbuKBzZAoyLkeKgDDXEE5nr2cLk=
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250313042805-669dca05eab1 h1:exRDH99WjrPIlNcXqRe5j3WLNUCGOecDEE1YSaWLfT8=
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250313042805-669dca05eab1/go.mod h1:LtB4zCv4uCT722mZkbuKBzZAoyLkeKgDDXEE5nr2cLk=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250313142254-b0e18567a1fc h1:b3e9UtfwYp4exxJ3216M5IvrgY9cE0OfnrzZR5YRUtI=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250313142254-b0e18567a1fc/go.mod h1:5K33p0qcEpx5rAY0s/Ih6M/kM9/3bcXHD6TYalX9tJs=
 github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=

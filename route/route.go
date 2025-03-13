@@ -45,7 +45,7 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 		// Updated to use JSON body for sensitive data instead of query parameters
 		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "email", "token", "newPassword", "confirmPassword" }
 
-		auth.GET("/2fa/setup", userController.GetTwoFactorAuthSetupHandler) //http://localhost:7000/api/v1/auth/2fa/setup
+		auth.GET("/2fa/status", userController.GetTwoFactorAuthStatusHandler) //http://localhost:7000/api/v1/auth/2fa/status?email=user@example.com
 	}
 }
 
@@ -81,7 +81,9 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		security := users.Group("/security")
 		{
 			security.POST("/password/change", userController.ChangePasswordHandler)
+
 			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)  //http://localhost:7000/api/v1/users/security/2fa/setup
+			security.DELETE("/2fa/setup", userController.DisableTwoFactorAuthHandler) //http://localhost:7000/api/v1/users/security/2fa/setup
 		}
 
 		// User search functionality
