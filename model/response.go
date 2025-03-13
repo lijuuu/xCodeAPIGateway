@@ -70,6 +70,7 @@ type LogoutResponse struct {
 
 type ResendEmailVerificationResponse struct {
     Message string `json:"message"`
+    ExpiryAt int64  `json:"expiryAt"`
 }
 
 type VerifyUserResponse struct {
@@ -197,4 +198,15 @@ type ErrorInfo struct {
     Code    int    `json:"code"`
     Message string `json:"message"`
     Details string `json:"details,omitempty"`
+}
+
+type SetUpTwoFactorAuthResponse struct {
+    Image   string `json:"image"`
+    Secret  string `json:"secret"`
+    Message string `json:"message"`
+}
+
+type GetTwoFactorAuthStatusResponse struct {
+    IsEnabled bool   `json:"isEnabled"`
+    Message   string `json:"message"`
 }

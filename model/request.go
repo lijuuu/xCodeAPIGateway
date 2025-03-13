@@ -219,3 +219,11 @@ type GetAllUsersRequest struct {
     FromDateFilter int64  `form:"fromDateFilter"`
     ToDateFilter   int64  `form:"toDateFilter"`
 }
+
+
+// SetUpTwoFactorAuthRequest for POST /api/v1/auth/2fa/setup (JSON body)
+type SetUpTwoFactorAuthRequest struct {
+    UserID    string `json:"userID"` //will be taken from JWT
+    Password  string `json:"password"`
+}
+

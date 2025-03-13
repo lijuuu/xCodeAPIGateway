@@ -37,12 +37,15 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 	{
 		auth.POST("/register", userController.RegisterUserHandler)
 		auth.POST("/login", userController.LoginUserHandler)
+		// auth.GET("/login/google", userController)
 		auth.POST("/token/refresh", userController.TokenRefreshHandler)
-		auth.GET("/verify", userController.VerifyUserHandler)                     // ?userID=uuid&token=123456
+		auth.GET("/verify", userController.VerifyUserHandler)                     // ?email=user@example.com&token=123456
 		auth.GET("/verify/resend", userController.ResendEmailVerificationHandler) // ?email=user@example.com
-		auth.GET("/password/forgot", userController.ForgotPasswordHandler)        // ?email=user@example.com
+		auth.POST("/password/forgot", userController.ForgotPasswordHandler)        // ?email=user@example.com
 		// Updated to use JSON body for sensitive data instead of query parameters
-		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "userID", "token", "newPassword", "confirmPassword" }
+		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "email", "token", "newPassword", "confirmPassword" }
+
+		auth.GET("/2fa/setup", userController.GetTwoFactorAuthSetupHandler) //http://localhost:7000/api/v1/auth/2fa/setup
 	}
 }
 
@@ -78,7 +81,7 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		security := users.Group("/security")
 		{
 			security.POST("/password/change", userController.ChangePasswordHandler)
-			security.POST("/2fa", userController.SetTwoFactorAuthHandler)
+			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)  //http://localhost:7000/api/v1/users/security/2fa/setup
 		}
 
 		// User search functionality

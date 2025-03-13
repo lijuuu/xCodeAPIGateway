@@ -337,7 +337,8 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.ResendEmailVerificationResponse{
-			Message: resp.Message,
+			Message:  resp.Message,
+			ExpiryAt: resp.ExpiryAt,
 		},
 		Error: nil,
 	})
@@ -391,8 +392,60 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 	})
 }
 
-func (uc *UserController) SetTwoFactorAuthHandler(c *gin.Context) {
-	var req model.ToggleTwoFactorAuthRequest
+// func (uc *UserController) SetTwoFactorAuthHandler(c *gin.Context) {
+// 	var req model.ToggleTwoFactorAuthRequest
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		c.JSON(http.StatusBadRequest, model.GenericResponse{
+// 			Success: false,
+// 			Status:  http.StatusBadRequest,
+// 			Payload: nil,
+// 			Error: &model.ErrorInfo{
+// 				Code:    http.StatusBadRequest,
+// 				Message: "Invalid request",
+// 				Details: err.Error(),
+// 			},
+// 		})
+// 		return
+// 	}
+
+// 	fmt.Println("req", req)
+
+// 	userID, _ := c.Get(middleware.EntityIDKey)
+
+// 	setTwoFactorAuthRequest := &AuthUserAdminService.ToggleTwoFactorAuthRequest{
+// 		UserID:        userID.(string),
+// 		Password:      req.Password,
+// 		TwoFactorAuth: req.TwoFactorAuth,
+// 	}
+
+// 	resp, err := uc.userClient.ToggleTwoFactorAuth(c.Request.Context(), setTwoFactorAuthRequest)
+// 	if err != nil {
+// 		grpcError, _ := status.FromError(err)
+// 		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+// 			Success: false,
+// 			Status:  http.StatusInternalServerError,
+// 			Payload: nil,
+// 			Error: &model.ErrorInfo{
+// 				Code:    http.StatusInternalServerError,
+// 				Message: "2FA setup failed",
+// 				Details: grpcError.Message(),
+// 			},
+// 		})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, model.GenericResponse{
+// 		Success: true,
+// 		Status:  http.StatusOK,
+// 		Payload: model.ToggleTwoFactorAuthResponse{
+// 			Message: resp.Message,
+// 		},
+// 		Error: nil,
+// 	})
+// }
+
+func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
+	var req model.ForgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -406,46 +459,7 @@ func (uc *UserController) SetTwoFactorAuthHandler(c *gin.Context) {
 		})
 		return
 	}
-
-	fmt.Println("req", req)
-
-	userID, _ := c.Get(middleware.EntityIDKey)
-
-	setTwoFactorAuthRequest := &AuthUserAdminService.ToggleTwoFactorAuthRequest{
-		UserID:        userID.(string),
-		Password:      req.Password,
-		TwoFactorAuth: req.TwoFactorAuth,
-	}
-
-	resp, err := uc.userClient.ToggleTwoFactorAuth(c.Request.Context(), setTwoFactorAuthRequest)
-	if err != nil {
-		grpcError, _ := status.FromError(err)
-		c.JSON(http.StatusInternalServerError, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusInternalServerError,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				Code:    http.StatusInternalServerError,
-				Message: "2FA setup failed",
-				Details: grpcError.Message(),
-			},
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: model.ToggleTwoFactorAuthResponse{
-			Message: resp.Message,
-		},
-		Error: nil,
-	})
-}
-
-func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
-	email := c.Query("email")
-	if email == "" {
+	if req.Email == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -460,7 +474,7 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 	}
 
 	forgotPasswordRequest := &AuthUserAdminService.ForgotPasswordRequest{
-		Email: email,
+		Email: req.Email,
 	}
 
 	resp, err := uc.userClient.ForgotPassword(c.Request.Context(), forgotPasswordRequest)
@@ -1605,16 +1619,16 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 	}
 
 	return model.UserProfile{
-		UserID:            protoProfile.UserID,
-		UserName:          protoProfile.UserName,
-		FirstName:         protoProfile.FirstName,
-		LastName:          protoProfile.LastName,
-		AvatarURL:         protoProfile.AvatarData,
-		Email:             protoProfile.Email,
-		Role:              protoProfile.Role,
-		Country:           protoProfile.Country,
-		IsBanned:          protoProfile.IsBanned,
-		IsVerified:        protoProfile.IsVerified,
+		UserID:    protoProfile.UserID,
+		UserName:  protoProfile.UserName,
+		FirstName: protoProfile.FirstName,
+		LastName:  protoProfile.LastName,
+		AvatarURL: protoProfile.AvatarData,
+		Email:     protoProfile.Email,
+		Role:      protoProfile.Role,
+		Country:   protoProfile.Country,
+		// IsBanned:          protoProfile.IsBanned,
+		// IsVerified:        protoProfile.IsVerified,
 		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
 		MuteNotifications: protoProfile.MuteNotifications,
 		Socials:           socials,
@@ -1650,4 +1664,130 @@ func mapBanHistories(protoBans []*AuthUserAdminService.BanHistory) []model.BanHi
 		bans[i] = mapBanHistory(b)
 	}
 	return bans
+}
+
+// message SetUpTwoFactorAuthRequest {
+// 	string userID = 1;
+// 	string password = 2;
+// }
+
+// message SetUpTwoFactorAuthResponse {
+// 	string image = 1;
+// 	string secret = 2;
+// 	string message = 3;
+// }
+
+// message DisableTwoFactorAuthRequest {
+// 	string userID = 1;
+// 	string password = 2;
+// }
+
+// message DisableTwoFactorAuthResponse {
+// 	string message = 1;
+// }
+
+// message GetTwoFactorAuthStatusRequest {
+// 	string userID = 1;
+// }
+
+// message GetTwoFactorAuthStatusResponse {
+// 	bool isEnabled = 1;
+// 	string message = 2;
+// }
+
+func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
+	var req model.SetUpTwoFactorAuthRequest
+	userID, _ := c.Get(middleware.EntityIDKey)
+	req.UserID = userID.(string)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid request",
+				Details: err.Error(),
+			},
+		})
+		return
+	}
+
+	setUpTwoFactorAuthRequest := &AuthUserAdminService.SetUpTwoFactorAuthRequest{
+		UserID:   req.UserID,
+		Password: req.Password,
+	}
+
+	resp, err := uc.userClient.SetUpTwoFactorAuth(c.Request.Context(), setUpTwoFactorAuthRequest)
+	if err != nil {
+		grpcError, _ := status.FromError(err)
+		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusInternalServerError,
+				Message: "Set up two factor auth failed",
+				Details: grpcError.Message(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: model.SetUpTwoFactorAuthResponse{
+			Image:   resp.Image,
+			Secret:  resp.Secret,
+			Message: resp.Message,
+		},
+		Error: nil,
+	})
+}
+
+// func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
+// 	var req model.DisableTwoFactorAuthRequest
+
+// }
+
+func (uc *UserController) GetTwoFactorAuthSetupHandler(c *gin.Context) {
+	email := c.Query("email")
+	if email == "" {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+		})
+	}
+
+	getTwoFactorAuthStatusRequest := &AuthUserAdminService.GetTwoFactorAuthStatusRequest{
+		Email: email,
+	}
+
+	resp, err := uc.userClient.GetTwoFactorAuthStatus(c.Request.Context(), getTwoFactorAuthStatusRequest)
+	if err != nil {
+		grpcError, _ := status.FromError(err)
+		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusInternalServerError,
+				Message: "Get two factor auth status failed",
+				Details: grpcError.Message(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: model.GetTwoFactorAuthStatusResponse{
+			IsEnabled: resp.IsEnabled,
+			Message:   resp.Message,
+		},
+		Error: nil,
+	})
 }

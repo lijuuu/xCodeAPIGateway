@@ -7,12 +7,13 @@ import (
 	"xcode/clients"
 	config "xcode/configs"
 	router "xcode/route"
-	"xcode/utils"
 
+	// "xcode/utils"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 )
-
 
 func main() {
 	// Load environment variables
@@ -29,7 +30,7 @@ func main() {
 	ginRouter := gin.Default()
 
 	// Apply rate limiting middleware using the rate package
-	limiter := rate.NewLimiter(1, 3)
+	limiter := rate.NewLimiter(1, 10)
 	ginRouter.Use(func(c *gin.Context) {
 		if !limiter.Allow() {
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests"})
@@ -38,9 +39,14 @@ func main() {
 		}
 		c.Next()
 	})
-	
 
-	ginRouter.Use(utils.CorsMiddleware())
+	// ginRouter.Use(cors.Default())
+	ginRouter.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true,
+		AllowCredentials: true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization", "Access-Control-Allow-Origin"},
+	}))
 
 	// Setup all routes
 	router.SetupRoutes(ginRouter, Client, config.JWTSecretKey)
