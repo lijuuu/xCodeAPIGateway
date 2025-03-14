@@ -1,23 +1,26 @@
 package controller
 
 import (
+	"encoding/json"
+	"time"
+
+	"xcode/natsclient"
+
 	"github.com/gin-gonic/gin"
-	CompilerService "github.com/lijuuu/GlobalProtoXcode/Compiler"
 )
 
 type CompilerController struct {
-	compilerClient CompilerService.CompilerServiceClient
+	NatsClient *natsclient.NatsClient
 }
 
-func NewCompilerController(compilerClient CompilerService.CompilerServiceClient) *CompilerController {
-	return &CompilerController{compilerClient: compilerClient}
+func NewCompilerController(natsClient *natsclient.NatsClient) *CompilerController {
+	return &CompilerController{NatsClient: natsClient}
 }
 
 type ExecutionRequest struct {
 	Code     string `json:"code" binding:"required"`
 	Language string `json:"language" binding:"required"`
 }
-
 
 type ExecutionResponse struct {
 	Output        string `json:"output"`
@@ -38,24 +41,38 @@ func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 		return
 	}
 
-	resp, err := s.compilerClient.Compile(c.Request.Context(), &CompilerService.CompileRequest{
-		Code:     req.Code,
-		Language: req.Language,
-	})
-
+	// Marshal the request to JSON
+	reqData, err := json.Marshal(req)
 	if err != nil {
 		c.JSON(500, ExecutionResponse{
 			Error:         err.Error(),
-			StatusMessage: "API request failed",
+			StatusMessage: "Failed to process request",
 			Success:       false,
 		})
+		return
 	}
 
-	c.JSON(200, ExecutionResponse{
-		Output:        resp.Output,
-		Error:         resp.Error,
-		StatusMessage: resp.StatusMessage,
-		Success:       resp.Success,
-		ExecutionTime: resp.ExecutionTime,
-	})
+	// Send request to NATS
+	msg, err := s.NatsClient.Request("compiler.execute.request", reqData, 5*time.Second)
+	if err != nil {
+		c.JSON(500, ExecutionResponse{
+			Error:         err.Error(),
+			StatusMessage: "Failed to execute code",
+			Success:       false,
+		})
+		return
+	}
+
+	// Unmarshal the response
+	var resp ExecutionResponse
+	if err := json.Unmarshal(msg.Data, &resp); err != nil {
+		c.JSON(500, ExecutionResponse{
+			Error:         err.Error(),
+			StatusMessage: "Failed to parse response",
+			Success:       false,
+		})
+		return
+	}
+
+	c.JSON(200, resp)
 }

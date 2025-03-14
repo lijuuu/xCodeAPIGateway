@@ -1,13 +1,15 @@
 package router
 
 import (
+	"log"
 	"xcode/clients"
+	"xcode/configs"
 	"xcode/controller"
 	"xcode/middleware"
+	"xcode/natsclient"
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
-	CompilerService "github.com/lijuuu/GlobalProtoXcode/Compiler"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -22,8 +24,12 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	userClient := AuthUserAdminService.NewAuthUserAdminServiceClient(clients.ConnUser)
 	userController := controller.NewUserController(userClient)
 	// adminController := controller.NewAdminController()
-	compilerClient := CompilerService.NewCompilerServiceClient(clients.ConnCompiler)
-	compilerController := controller.NewCompilerController(compilerClient)
+
+	natsClient, err := natsclient.NewNatsClient(configs.LoadConfig().NATSURL)
+	if err != nil {
+		log.Fatalf("Failed to create NATS client: %v", err)
+	}
+	compilerController := controller.NewCompilerController(natsClient)
 
 	// Base API group with version prefix
 	apiV1 := router.Group("/api/v1")

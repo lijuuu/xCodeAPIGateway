@@ -16,6 +16,7 @@ type Config struct {
 	APIGATEWAYPORT string
 	UserGRPCPort   string
 	CompilerGRPCPort string
+	NATSURL string
 }
 
 // LoadConfig loads configuration from environment variables with defaults
@@ -31,6 +32,7 @@ func LoadConfig() Config {
 		APIGATEWAYPORT: getEnv("APIGATEWAYPORT", "7000"),
 		UserGRPCPort:   getEnv("USERGRPCPORT", "50051"),
 		CompilerGRPCPort: getEnv("COMPILERGRPCPORT", "80000"),
+		NATSURL: getEnv("NATSURL", "nats://localhost:4222"),
 	}
 }
 
