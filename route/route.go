@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	CompilerService "github.com/lijuuu/GlobalProtoXcode/Compiler"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -21,6 +22,8 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	userClient := AuthUserAdminService.NewAuthUserAdminServiceClient(clients.ConnUser)
 	userController := controller.NewUserController(userClient)
 	// adminController := controller.NewAdminController()
+	compilerClient := CompilerService.NewCompilerServiceClient(clients.ConnCompiler)
+	compilerController := controller.NewCompilerController(compilerClient)
 
 	// Base API group with version prefix
 	apiV1 := router.Group("/api/v1")
@@ -29,6 +32,7 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	setupPublicAuthRoutes(apiV1, userController)
 	setupProtectedUserRoutes(apiV1, userController, jwtSecret)
 	setupAdminRoutes(apiV1, userController, jwtSecret)
+	setUPCompilerRoutes(apiV1, compilerController)
 }
 
 // setupPublicAuthRoutes defines endpoints for authentication (no JWT required)
@@ -41,7 +45,7 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 		auth.POST("/token/refresh", userController.TokenRefreshHandler)
 		auth.GET("/verify", userController.VerifyUserHandler)                     // ?email=user@example.com&token=123456
 		auth.GET("/verify/resend", userController.ResendEmailVerificationHandler) // ?email=user@example.com
-		auth.POST("/password/forgot", userController.ForgotPasswordHandler)        // ?email=user@example.com
+		auth.POST("/password/forgot", userController.ForgotPasswordHandler)       // ?email=user@example.com
 		// Updated to use JSON body for sensitive data instead of query parameters
 		auth.POST("/password/reset", userController.FinishForgotPasswordHandler) // JSON body: { "email", "token", "newPassword", "confirmPassword" }
 
@@ -82,7 +86,7 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		{
 			security.POST("/password/change", userController.ChangePasswordHandler)
 
-			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)  //http://localhost:7000/api/v1/users/security/2fa/setup
+			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)     //http://localhost:7000/api/v1/users/security/2fa/setup
 			security.DELETE("/2fa/setup", userController.DisableTwoFactorAuthHandler) //http://localhost:7000/api/v1/users/security/2fa/setup
 		}
 
@@ -116,5 +120,12 @@ func setupAdminRoutes(apiV1 *gin.RouterGroup, userController *controller.UserCon
 			adminUsers.POST("/unban", userController.UnbanUserHandler)                   // JSON body: { "userID" }
 			adminUsers.GET("/ban-history", userController.BanHistoryHandler)             // ?userID=uuid
 		}
+	}
+}
+
+func setUPCompilerRoutes(apiV1 *gin.RouterGroup, compilerController *controller.CompilerController) {
+	compiler := apiV1.Group("")
+	{
+		compiler.POST("/compile", compilerController.CompileCodeHandler)
 	}
 }

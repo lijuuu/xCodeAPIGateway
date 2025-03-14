@@ -15,6 +15,7 @@ type Config struct {
 	// Microservices
 	APIGATEWAYPORT string
 	UserGRPCPort   string
+	CompilerGRPCPort string
 }
 
 // LoadConfig loads configuration from environment variables with defaults
@@ -29,6 +30,7 @@ func LoadConfig() Config {
 		JWTSecretKey:   getEnv("JWTSECRETKEY", "secretLeetcode"),
 		APIGATEWAYPORT: getEnv("APIGATEWAYPORT", "7000"),
 		UserGRPCPort:   getEnv("USERGRPCPORT", "50051"),
+		CompilerGRPCPort: getEnv("COMPILERGRPCPORT", "80000"),
 	}
 }
 
