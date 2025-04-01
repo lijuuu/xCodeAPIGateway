@@ -1,14 +1,14 @@
 package natsclient
 
 import (
-	"time"
-
 	"github.com/nats-io/nats.go"
+	"time"
 )
 
 type NatsClient struct {
 	Conn *nats.Conn
 }
+
 
 func NewNatsClient(natsURL string) (*NatsClient, error) {
 	nc, err := nats.Connect(natsURL)

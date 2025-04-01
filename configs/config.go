@@ -16,6 +16,7 @@ type Config struct {
 	APIGATEWAYPORT string
 	UserGRPCPort   string
 	CompilerGRPCPort string
+	ProblemGRPCPort string
 	NATSURL string
 }
 
@@ -31,7 +32,8 @@ func LoadConfig() Config {
 		JWTSecretKey:   getEnv("JWTSECRETKEY", "secretLeetcode"),
 		APIGATEWAYPORT: getEnv("APIGATEWAYPORT", "7000"),
 		UserGRPCPort:   getEnv("USERGRPCPORT", "50051"),
-		CompilerGRPCPort: getEnv("COMPILERGRPCPORT", "80000"),
+		CompilerGRPCPort: getEnv("COMPILERGRPCPORT", "50053"),
+		ProblemGRPCPort: getEnv("PROBLEMGRPCPORT", "50055"),
 		NATSURL: getEnv("NATSURL", "nats://localhost:4222"),
 	}
 }

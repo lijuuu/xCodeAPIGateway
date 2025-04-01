@@ -67,7 +67,7 @@ func mapGrpcCodeToHttp(code codes.Code) int {
 	case codes.Internal:
 		return http.StatusInternalServerError
 	default:
-		return http.StatusInternalServerError
+		return http.StatusBadRequest
 	}
 }
 

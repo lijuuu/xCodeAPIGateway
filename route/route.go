@@ -10,26 +10,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	ProblemsService "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
 )
 
 // SetupRoutes initializes all API routes with middleware and controllers under /api/v1/
 func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecret string) {
 
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/docs/openapi.yaml")))
-	router.StaticFile("/docs/openapi.yaml", "./openapi.yaml")
-
 	// Initialize gRPC client and controllers
 	userClient := AuthUserAdminService.NewAuthUserAdminServiceClient(clients.ConnUser)
 	userController := controller.NewUserController(userClient)
-	// adminController := controller.NewAdminController()
 
 	natsClient, err := natsclient.NewNatsClient(configs.LoadConfig().NATSURL)
 	if err != nil {
 		log.Fatalf("Failed to create NATS client: %v", err)
 	}
 	compilerController := controller.NewCompilerController(natsClient)
+
+	problemClient := ProblemsService.NewProblemsServiceClient(clients.ConnProblem)
+	problemController := controller.NewProblemController(problemClient)
 
 	// Base API group with version prefix
 	apiV1 := router.Group("/api/v1")
@@ -39,6 +37,7 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	setupProtectedUserRoutes(apiV1, userController, jwtSecret)
 	setupAdminRoutes(apiV1, userController, jwtSecret)
 	setUPCompilerRoutes(apiV1, compilerController)
+	setUPProblemRoutes(apiV1, problemController)
 }
 
 // setupPublicAuthRoutes defines endpoints for authentication (no JWT required)
@@ -133,5 +132,28 @@ func setUPCompilerRoutes(apiV1 *gin.RouterGroup, compilerController *controller.
 	compiler := apiV1.Group("")
 	{
 		compiler.POST("/compile", compilerController.CompileCodeHandler)
+	}
+}
+
+func setUPProblemRoutes(apiV1 *gin.RouterGroup, problemController *controller.ProblemController) {
+	problem := apiV1.Group("problems")
+	{
+		problem.POST("/", problemController.CreateProblemHandler)                      // JSON body: { "title", "description", "tags", "difficulty" }
+		problem.PUT("/", problemController.UpdateProblemHandler)                       // JSON body: { "problem_id", "title", "description", "tags", "difficulty" }
+		problem.DELETE("/", problemController.DeleteProblemHandler)                    // ?problem_id=uuid
+		problem.GET("/", problemController.GetProblemHandler)                          // ?problem_id=uuid
+		problem.GET("/list", problemController.ListProblemsHandler)                    // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
+		problem.POST("/testcases", problemController.AddTestCasesHandler)              // JSON body: { "problem_id", "testcases": { "run", "submit" } }
+		problem.DELETE("/testcases/single", problemController.DeleteTestCaseHandler)   // JSON body: { "problem_id", "testcase_id", "is_run_testcase" }
+		problem.POST("/language", problemController.AddLanguageSupportHandler)         // JSON body: { "problem_id", "language", "validation_code" }
+		problem.PUT("/language", problemController.UpdateLanguageSupportHandler)       // JSON body: { "problem_id", "language", "validation_code" }
+		problem.DELETE("/language", problemController.RemoveLanguageSupportHandler)    // JSON body: { "problem_id", "language" }
+		problem.GET("/validate", problemController.FullValidationByProblemIDHandler)   // ?problem_id=uuid
+		problem.GET("/languages", problemController.GetLanguageSupportsHandler)        // ?problem_id=uuid
+		problem.POST("/execute", problemController.RunUserCodeProblemHandler)          // JSON body: { "problem_id", "user_code", "langauge", "is_run_testcase" }
+		problem.GET("/metadata", problemController.GetProblemByIDSlugHandler)          // ?problem_id=uuid&slug=text
+		problem.GET("/metadata/list", problemController.GetProblemByIDSlugListHandler) // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
+
+
 	}
 }

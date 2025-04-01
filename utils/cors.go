@@ -18,7 +18,7 @@ func CorsMiddleware() gin.HandlerFunc {
 			c.AbortWithStatus(204) 
 			return
 		}
-
+		
 		// Continue to the next middleware
 		c.Next()
 	}

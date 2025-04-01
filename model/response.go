@@ -196,7 +196,7 @@ type GenericResponse struct {
 
 type ErrorInfo struct {
     ErrorType string `json:"type"`
-    Code    int    `json:"code"`
+    Code    int    `json:"code,omitempty"`
     Message string `json:"message"`
     Details string `json:"details,omitempty"`
 }
@@ -210,4 +210,14 @@ type SetUpTwoFactorAuthResponse struct {
 type GetTwoFactorAuthStatusResponse struct {
     IsEnabled bool   `json:"isEnabled"`
     Message   string `json:"message"`
+}
+
+type ExecutionResultJSON struct {
+	TestCaseIndex int    `json:"testCaseIndex"`
+	Nums          []int  `json:"nums"`
+	Target        int    `json:"target"`
+	Expected      []int  `json:"expected"`
+	Received      []int  `json:"received"`
+	Passed        bool   `json:"passed"`
+	Summary       string `json:"summary,omitempty"`
 }

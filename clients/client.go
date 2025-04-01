@@ -12,6 +12,7 @@ import (
 type ClientConnections struct {
 	ConnUser *grpc.ClientConn
 	ConnCompiler *grpc.ClientConn
+	ConnProblem *grpc.ClientConn
 }
 
 func InitClients(config *config.Config) (*ClientConnections, error) {
@@ -30,9 +31,17 @@ func InitClients(config *config.Config) (*ClientConnections, error) {
 		return nil, fmt.Errorf("failed to connect to Compiler gRPC server: %v", err)
 	}
 
+	targetProblem := fmt.Sprintf("localhost:%s", config.ProblemGRPCPort)
+	ConnProblem, err := grpc.NewClient(targetProblem, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	fmt.Println("Connecting to ProblemService at:", targetProblem, "ConnProblem:", ConnProblem)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Problem gRPC server: %v", err)
+	}
+
 	return &ClientConnections{
 		ConnUser: ConnUser,
 		ConnCompiler: ConnCompiler,
+		ConnProblem: ConnProblem,
 	}, nil
 }
 
@@ -43,5 +52,9 @@ func (c *ClientConnections) Close() {
 
 	if c.ConnCompiler != nil {
 		c.ConnCompiler.Close()
+	}
+
+	if c.ConnProblem != nil {
+		c.ConnProblem.Close()
 	}
 }

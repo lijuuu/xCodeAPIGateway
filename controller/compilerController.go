@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"xcode/natsclient"
@@ -33,7 +34,7 @@ type ExecutionResponse struct {
 func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 	var req ExecutionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, ExecutionResponse{
+		c.JSON(http.StatusBadRequest, ExecutionResponse{
 			Error:         err.Error(),
 			StatusMessage: "API request failed",
 			Success:       false,
@@ -44,7 +45,7 @@ func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 	// Marshal the request to JSON
 	reqData, err := json.Marshal(req)
 	if err != nil {
-		c.JSON(500, ExecutionResponse{
+		c.JSON(http.StatusBadRequest, ExecutionResponse{
 			Error:         err.Error(),
 			StatusMessage: "Failed to process request",
 			Success:       false,
@@ -53,10 +54,10 @@ func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 	}
 
 	// Send request to NATS
-	msg, err := s.NatsClient.Request("compiler.execute.request", reqData, 5*time.Second)
+	msg, err := s.NatsClient.Request("compiler.execute.request", reqData, 15*time.Second)
 	if err != nil {
-		c.JSON(500, ExecutionResponse{
-			Error:         err.Error(),
+		c.JSON(http.StatusBadGateway, ExecutionResponse{
+			Error:         "Failed to execute code",
 			StatusMessage: "Failed to execute code",
 			Success:       false,
 		})
@@ -66,7 +67,7 @@ func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 	// Unmarshal the response
 	var resp ExecutionResponse
 	if err := json.Unmarshal(msg.Data, &resp); err != nil {
-		c.JSON(500, ExecutionResponse{
+		c.JSON(http.StatusBadRequest, ExecutionResponse{
 			Error:         err.Error(),
 			StatusMessage: "Failed to parse response",
 			Success:       false,
@@ -74,5 +75,7 @@ func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, resp)
+	c.JSON(http.StatusOK, resp)
 }
+
+

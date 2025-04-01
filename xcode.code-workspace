@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "../ProblemsService"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../AuthUserAdminService"
+		},
+		{
+			"path": "../SandboxedCodeExecutionEngine"
+		},
+		{
+			"path": "../Proto"
+		},
+		{
+			"path": "../Frontend"
+		},
+		{
+			"path": "../.vscode"
+		}
+	],
+	"settings": {}
+}

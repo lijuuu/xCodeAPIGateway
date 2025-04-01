@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"net/http"
+	// "net/http"
 
 	"xcode/clients"
 	config "xcode/configs"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
+	// "golang.org/x/time/rate"
 )
 
 func main() {
@@ -30,15 +30,16 @@ func main() {
 	ginRouter := gin.Default()
 
 	// Apply rate limiting middleware using the rate package
-	limiter := rate.NewLimiter(1, 10)
-	ginRouter.Use(func(c *gin.Context) {
-		if !limiter.Allow() {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests"})
-			c.Abort()
-			return
-		}
-		c.Next()
-	})
+	// limiter := rate.NewLimiter(1, 10)
+	// ginRouter.Use(func(c *gin.Context) {
+	// 	if !limiter.Allow() {
+	// 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests"})
+	// 		c.Abort()
+	// 		return
+	// 	}
+	// 	c.Next()
+	// })
+
 
 	// ginRouter.Use(cors.Default())
 	ginRouter.Use(cors.New(cors.Config{
