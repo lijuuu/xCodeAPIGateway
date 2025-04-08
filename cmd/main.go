@@ -46,8 +46,10 @@ func main() {
 		AllowAllOrigins:  true,
 		AllowCredentials: true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders:     []string{"Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization", "Access-Control-Allow-Origin"},
+		AllowHeaders:     []string{"*"},
 	}))
+
+	
 
 	// Setup all routes
 	router.SetupRoutes(ginRouter, Client, config.JWTSecretKey)

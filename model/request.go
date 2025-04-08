@@ -100,9 +100,9 @@ type UpdateProfileRequest struct {
 }
 
 // UpdateProfileImageRequest for PUT /api/v1/users/profile/image (JSON body)
-type UpdateProfileImageRequest struct {
-	AvatarURL string `json:"avatarURL"`
-}
+// type UpdateProfileImageRequest struct {
+// 	AvatarImageData string `json:"avatarImageData"`
+// }
 
 // GetUserProfileRequest for GET /api/v1/users/profile (query parameters)
 type GetUserProfileRequest struct {

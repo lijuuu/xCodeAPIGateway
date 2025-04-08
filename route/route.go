@@ -60,7 +60,10 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 
 // setupProtectedUserRoutes defines endpoints for authenticated users (USER role)
 func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController, jwtSecret string) {
+
 	users := apiV1.Group("/users")
+	users.GET("/public/profile", userController.GetUserProfilePublicHandler)
+
 	users.Use(
 		middleware.JWTAuthMiddleware(jwtSecret),
 		middleware.RoleAuthMiddleware(middleware.RoleUser),
@@ -138,22 +141,23 @@ func setUPCompilerRoutes(apiV1 *gin.RouterGroup, compilerController *controller.
 func setUPProblemRoutes(apiV1 *gin.RouterGroup, problemController *controller.ProblemController) {
 	problem := apiV1.Group("problems")
 	{
-		problem.POST("/", problemController.CreateProblemHandler)                      // JSON body: { "title", "description", "tags", "difficulty" }
-		problem.PUT("/", problemController.UpdateProblemHandler)                       // JSON body: { "problem_id", "title", "description", "tags", "difficulty" }
-		problem.DELETE("/", problemController.DeleteProblemHandler)                    // ?problem_id=uuid
-		problem.GET("/", problemController.GetProblemHandler)                          // ?problem_id=uuid
-		problem.GET("/list", problemController.ListProblemsHandler)                    // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
-		problem.POST("/testcases", problemController.AddTestCasesHandler)              // JSON body: { "problem_id", "testcases": { "run", "submit" } }
-		problem.DELETE("/testcases/single", problemController.DeleteTestCaseHandler)   // JSON body: { "problem_id", "testcase_id", "is_run_testcase" }
-		problem.POST("/language", problemController.AddLanguageSupportHandler)         // JSON body: { "problem_id", "language", "validation_code" }
-		problem.PUT("/language", problemController.UpdateLanguageSupportHandler)       // JSON body: { "problem_id", "language", "validation_code" }
-		problem.DELETE("/language", problemController.RemoveLanguageSupportHandler)    // JSON body: { "problem_id", "language" }
-		problem.GET("/validate", problemController.FullValidationByProblemIDHandler)   // ?problem_id=uuid
-		problem.GET("/languages", problemController.GetLanguageSupportsHandler)        // ?problem_id=uuid
-		problem.POST("/execute", problemController.RunUserCodeProblemHandler)          // JSON body: { "problem_id", "user_code", "langauge", "is_run_testcase" }
-		problem.GET("/metadata", problemController.GetProblemByIDSlugHandler)          // ?problem_id=uuid&slug=text
-		problem.GET("/metadata/list", problemController.GetProblemByIDSlugListHandler) // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
+		problem.POST("/", problemController.CreateProblemHandler)                    // JSON body: { "title", "description", "tags", "difficulty" }
+		problem.PUT("/", problemController.UpdateProblemHandler)                     // JSON body: { "problem_id", "title", "description", "tags", "difficulty" }
+		problem.DELETE("/", problemController.DeleteProblemHandler)                  // ?problem_id=uuid
+		problem.GET("/", problemController.GetProblemHandler)                        // ?problem_id=uuid
+		problem.GET("/list", problemController.ListProblemsHandler)                  // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
+		problem.POST("/testcases", problemController.AddTestCasesHandler)            // JSON body: { "problem_id", "testcases": { "run", "submit" } }
+		problem.DELETE("/testcases/single", problemController.DeleteTestCaseHandler) // JSON body: { "problem_id", "testcase_id", "is_run_testcase" }
+		problem.POST("/language", problemController.AddLanguageSupportHandler)       // JSON body: { "problem_id", "language", "validation_code" }
+		problem.PUT("/language", problemController.UpdateLanguageSupportHandler)     // JSON body: { "problem_id", "language", "validation_code" }
+		problem.DELETE("/language", problemController.RemoveLanguageSupportHandler)  // JSON body: { "problem_id", "language" }
+		problem.GET("/validate", problemController.FullValidationByProblemIDHandler) // ?problem_id=uuid
+		problem.GET("/languages", problemController.GetLanguageSupportsHandler)      // ?problem_id=uuid
+		problem.POST("/execute", problemController.RunUserCodeProblemHandler)        // JSON body: { "problem_id", "user_code", "langauge", "is_run_testcase" }
+		problem.GET("/metadata", problemController.GetProblemByIDSlugHandler)        // ?problem_id=uuid || slug=text
+		problem.GET("/metadata/list", problemController.GetProblemByIDListHandler)   // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
 
+		// problem.GET("submission/history",problemController.) // type = recent show limit 10 and offset, or problemid . show limit 10
 
 	}
 }

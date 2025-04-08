@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"xcode/customerrors"
 	"xcode/middleware"
 	"xcode/model"
+	"xcode/utils"
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
@@ -717,8 +719,10 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
-	var req model.UpdateProfileImageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// var req model.UpdateProfileImageRequest
+	file, err := c.FormFile("avatar")
+
+	if err != nil {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -749,9 +753,11 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 		return
 	}
 
+	avatarUrl, _ := utils.UploadToCloudinary(file)
+
 	updateProfileImageRequest := &AuthUserAdminService.UpdateProfileImageRequest{
 		UserID:    userID.(string),
-		AvatarURL: req.AvatarURL,
+		AvatarURL: avatarUrl,
 	}
 
 	resp, err := uc.userClient.UpdateProfileImage(c.Request.Context(), updateProfileImageRequest)
@@ -786,8 +792,11 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
-	userID, exists := c.Get(middleware.EntityIDKey)
-	if !exists {
+	userID, _ := c.Get(middleware.EntityIDKey)
+
+	fmt.Println("userID ", userID)
+
+	if userID == "" {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusUnauthorized,
@@ -804,6 +813,61 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 
 	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
 		UserID: userID.(string),
+	}
+
+	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
+			Success: false,
+			Status:  httpCode,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Profile retrieval failed",
+				Details:   details,
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: model.GetUserProfileResponse{
+			UserProfile: mapUserProfile(resp.UserProfile),
+			Message:     resp.Message,
+		},
+		Error: nil,
+	})
+}
+
+func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
+	userIDparams := c.Param("userID")
+
+	fmt.Println("useridparam ", userIDparams)
+
+	if userIDparams == "" {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "Failed to get user ID from param",
+				Details:   "userID is required",
+			},
+		})
+		return
+	}
+
+	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
+		UserID: userIDparams,
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
@@ -1897,6 +1961,7 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 		FirstName:         protoProfile.FirstName,
 		LastName:          protoProfile.LastName,
 		AvatarURL:         protoProfile.AvatarData,
+		IsVerified:        protoProfile.IsVerified,
 		Email:             protoProfile.Email,
 		Role:              protoProfile.Role,
 		Country:           protoProfile.Country,

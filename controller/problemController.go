@@ -35,11 +35,11 @@ func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.CreateProblem(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to create problem", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to create problem", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -78,11 +78,11 @@ func (c *ProblemController) UpdateProblemHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.UpdateProblem(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to update problem", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to update problem", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -121,11 +121,11 @@ func (c *ProblemController) DeleteProblemHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.DeleteProblem(ctx.Request.Context(), &pb.DeleteProblemRequest{ProblemId: problemID})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to delete problem", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to delete problem", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -164,11 +164,11 @@ func (c *ProblemController) GetProblemHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.GetProblem(ctx.Request.Context(), &pb.GetProblemRequest{ProblemId: problemID})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to get problem", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to get problem", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -203,11 +203,11 @@ func (c *ProblemController) ListProblemsHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.ListProblems(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to list problems", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to list problems", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -238,11 +238,11 @@ func (c *ProblemController) AddTestCasesHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.AddTestCases(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to add test cases", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to add test cases", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -290,11 +290,11 @@ func (c *ProblemController) DeleteTestCaseHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.DeleteTestCase(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to delete test case", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to delete test case", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -333,11 +333,11 @@ func (c *ProblemController) AddLanguageSupportHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.AddLanguageSupport(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to add language support", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to add language support", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -376,11 +376,11 @@ func (c *ProblemController) UpdateLanguageSupportHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.UpdateLanguageSupport(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to update language support", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to update language support", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -419,11 +419,11 @@ func (c *ProblemController) RemoveLanguageSupportHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.RemoveLanguageSupport(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to remove language support", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to remove language support", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -459,17 +459,44 @@ func (c *ProblemController) FullValidationByProblemIDHandler(ctx *gin.Context) {
 		})
 		return
 	}
+
 	resp, err := c.problemClient.FullValidationByProblemID(ctx.Request.Context(), &pb.FullValidationByProblemIDRequest{ProblemId: problemID})
+	fmt.Println("API Controller Response:", resp, err) // Debug log
+
+	// Check if the response is nil
+	// if resp == nil {
+	// 	ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+	// 		Success: false,
+	// 		Status:  http.StatusInternalServerError,
+	// 		Payload: nil,
+	// 		Error:   &model.ErrorInfo{ErrorType: "VALIDATION_FAILED", Code: http.StatusInternalServerError, Message: "Validation failed, response is nil", Details: "The gRPC response is nil"},
+	// 	})
+	// 	return
+	// }
+
+	// Handle gRPC error
 	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		grpcStatus, ok := status.FromError(err)
+		if !ok {
+			ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Payload: nil,
+				Error:   &model.ErrorInfo{ErrorType: "INTERNAL_ERROR", Code: http.StatusInternalServerError, Message: "Internal server error", Details: err.Error()},
+			})
+			return
+		}
+		// Use grpcStatus details if available, fallback to generic error
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to validate problem", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "VALIDATION_ERROR", Code: http.StatusBadRequest, Message: grpcStatus.Message(), Details: grpcStatus.Message()},
 		})
 		return
 	}
+
+	// Handle unsuccessful response
 	if !resp.Success {
 		httpCode := http.StatusBadRequest
 		if resp.ErrorType == "NOT_FOUND" {
@@ -483,6 +510,8 @@ func (c *ProblemController) FullValidationByProblemIDHandler(ctx *gin.Context) {
 		})
 		return
 	}
+
+	// Successful response
 	ctx.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
@@ -505,11 +534,11 @@ func (c *ProblemController) GetLanguageSupportsHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.GetLanguageSupports(ctx.Request.Context(), &pb.GetLanguageSupportsRequest{ProblemId: problemID})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to get language supports", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to get language supports", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -559,11 +588,11 @@ func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.GetProblemByIDSlug(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to get problem metadata", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to get problem metadata", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -584,8 +613,8 @@ func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
 	})
 }
 
-func (c *ProblemController) GetProblemByIDSlugListHandler(ctx *gin.Context) {
-	var req pb.GetProblemByIdSlugListRequest
+func (c *ProblemController) GetProblemByIDListHandler(ctx *gin.Context) {
+	var req pb.GetProblemByIdListRequest
 	if page, err := strconv.Atoi(ctx.Query("page")); err == nil && page > 0 {
 		req.Page = int32(page)
 	}
@@ -595,14 +624,14 @@ func (c *ProblemController) GetProblemByIDSlugListHandler(ctx *gin.Context) {
 	req.Tags = ctx.QueryArray("tags")
 	req.Difficulty = ctx.Query("difficulty")
 	req.SearchQuery = ctx.Query("search_query")
-	resp, err := c.problemClient.GetProblemByIDSlugList(ctx.Request.Context(), &req)
+	resp, err := c.problemClient.GetProblemByIDList(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusInternalServerError, Message: "Failed to list problem metadata", Details: grpcStatus.Message()},
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to list problem metadata", Details: grpcStatus.Message()},
 		})
 		return
 	}
@@ -676,9 +705,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	resp, err := c.problemClient.RunUserCodeProblem(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
 				"problem_id":      resp.ProblemId,
 				"language":        resp.Language,
@@ -719,7 +748,7 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		}
 
 		overallPass := false
-		if resp.ErrorType != "COMPILATION_ERROR" && resp.ErrorType != "EXECUTION_ERROR" {
+		if resp.ErrorType == "" {
 			overallPass = true
 		}
 		syntaxError := ""
@@ -754,9 +783,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	// Parse the successful execution result
 	var output model.UniversalExecutionResult
 	if err := json.Unmarshal([]byte(resp.Message), &output); err != nil {
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusInternalServerError,
+			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
 				"problem_id":      resp.ProblemId,
 				"language":        resp.Language,
@@ -782,11 +811,11 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	}
 
 	// Ensure OverallPass is set correctly based on test case results
-	if output.FailedTestCases == 0 && output.PassedTestCases == output.TotalTestCases {
-		output.OverallPass = true
-	} else {
-		output.OverallPass = false
-	}
+	// if output.FailedTestCases == 0 && output.PassedTestCases == output.TotalTestCases {
+	// 	output.OverallPass = true
+	// } else {
+	// 	output.OverallPass = false
+	// }
 
 	// Log for debugging
 	fmt.Println("resp from execution:", resp)
