@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 	"xcode/customerrors"
 	"xcode/model"
 
@@ -651,6 +652,8 @@ func (c *ProblemController) GetProblemByIDListHandler(ctx *gin.Context) {
 func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	var req pb.RunProblemRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		fmt.Println("bind json failed ", req)
+
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -675,8 +678,25 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		return
 	}
 
+	// userID, exists := ctx.Get(middleware.EntityIDKey)
+	// fmt.Println("no userID")
+	// if !exists || userID == nil {
+	// 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+	// 				Success: false,
+	// 				Status:  http.StatusBadRequest,
+	// 				Payload: nil,
+	// 				Error: &model.ErrorInfo{
+	// 						ErrorType: customerrors.ERR_BAD_REQUEST,
+	// 						Code:      http.StatusBadRequest,
+	// 						Message:   "User ID is missing or unauthorized",
+	// 						Details:   "Failed to retrieve user ID from context",
+	// 				},
+	// 		})
+	// 		return
+	// }
+
 	// Validate required fields
-	if req.ProblemId == "" || req.UserCode == "" || req.Language == "" {
+	if req.ProblemId == "" || req.UserCode == "" || req.Language == "" || req.UserId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -731,7 +751,6 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		})
 		return
 	}
-	
 
 	// Handle service response
 	if !resp.Success {
@@ -804,7 +823,7 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			},
 			Error: &model.ErrorInfo{
 				ErrorType: "UNMARSHAL_FAILED",
-				Message:  fmt.Sprintf("Failed to parse execution result: %v", err),
+				Message:   fmt.Sprintf("Failed to parse execution result: %v", err),
 			},
 		})
 		return
@@ -845,3 +864,186 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 // 			"details": "ErrorType: VALIDATION_ERROR, Code: 3, Details: Problem ID, user code, and language are required"
 // 	}
 // }
+
+func (c *ProblemController) GetSubmissionHistoryOptionalProblemId(ctx *gin.Context) {
+	userID := ctx.Query("userID")
+	problemID := ctx.Query("problemID")
+	pageStr := ctx.Query("page")
+	limitStr := ctx.Query("limit")
+
+	if userID == "" { //if userid is not present dont run the code
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing required field: userID",
+				Details:   "The userID query parameter is required",
+			},
+		})
+		return
+	}
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1 //default
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10 //default
+	}
+
+	//prepare the gRPC request
+	grpcReq := pb.GetSubmissionsRequest{
+		UserId:    userID,
+		ProblemId: &problemID,
+		Page:      int32(page),
+		Limit:     int32(limit),
+	}
+
+	resp, err := c.problemClient.GetSubmissionsByOptionalProblemID(ctx.Request.Context(), &grpcReq)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to create problem", Details: grpcStatus.Message()},
+		})
+		return
+	}
+	if !resp.Success {
+		httpCode := http.StatusBadRequest
+		if resp.ErrorType == "NOT_FOUND" {
+			httpCode = http.StatusNotFound
+		}
+		ctx.JSON(httpCode, model.GenericResponse{
+			Success: false,
+			Status:  httpCode,
+			Payload: nil,
+			Error:   &model.ErrorInfo{ErrorType: resp.ErrorType, Code: httpCode, Message: resp.Message, Details: resp.Message},
+		})
+		return
+	}
+
+	submissions := mapSubmissions(resp.Submissions)
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: model.SubmissionHistoryResponse{
+			Submissions: submissions,
+		},
+		Error: nil,
+	})
+
+}
+
+func mapSubmissions(pbSubmissions []*pb.Submission) []model.Submission {
+	submissions := make([]model.Submission, len(pbSubmissions))
+	for i, pbSubmission := range pbSubmissions {
+		submissions[i] = model.Submission{
+			ID:            pbSubmission.Id,
+			UserID:        pbSubmission.UserId,
+			ChallengeID:   pbSubmission.ChallengeId,
+			ProblemID:     pbSubmission.ProblemId,
+			Title:         pbSubmission.Title,
+			Status:        pbSubmission.Status,
+			Language:      pbSubmission.Language,
+			Output:        pbSubmission.Output,
+			UserCode:      pbSubmission.UserCode,
+			SubmittedAt:   convertTimestampToTime(pbSubmission.SubmittedAt),
+			ExecutionTime: float64(pbSubmission.ExecutionTime),
+			Difficulty:    pbSubmission.Difficulty,
+			IsFirst:       pbSubmission.IsFirst,
+			Score:         int(pbSubmission.Score),
+		}
+	}
+	return submissions
+}
+
+func convertTimestampToTime(pbTimestamp *pb.Timestamp) time.Time {
+	// pb.RunProblemRequest
+	if pbTimestamp == nil {
+		return time.Time{}
+	}
+	return time.Unix(pbTimestamp.Seconds, int64(pbTimestamp.Nanos))
+}
+
+func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
+	// Extract userID from query parameters
+	userID := ctx.Query("userID")
+	if userID == "" {
+			ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+					Success: false,
+					Status:  http.StatusBadRequest,
+					Payload: nil,
+					Error: &model.ErrorInfo{
+							ErrorType: customerrors.ERR_INVALID_REQUEST,
+							Code:      http.StatusBadRequest,
+							Message:   "Missing required field: userID",
+							Details:   "The userID query parameter is required",
+					},
+			})
+			return
+	}
+
+	// Prepare the gRPC request
+	grpcReq := &pb.GetProblemsDoneStatisticsRequest{
+			UserId: userID,
+	}
+
+	// Call the gRPC service
+	resp, err := c.problemClient.GetProblemsDoneStatistics(ctx.Request.Context(), grpcReq)
+	if err != nil {
+			grpcStatus, _ := status.FromError(err)
+			ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+					Success: false,
+					Status:  http.StatusInternalServerError,
+					Payload: nil,
+					Error: &model.ErrorInfo{
+							ErrorType: "GRPC_ERROR",
+							Code:      http.StatusInternalServerError,
+							Message:   "Failed to fetch problem statistics",
+							Details:   grpcStatus.Message(),
+					},
+			})
+			return
+	}
+
+	// Check if the response data is nil
+	if resp.Data == nil {
+			ctx.JSON(http.StatusNotFound, model.GenericResponse{
+					Success: false,
+					Status:  http.StatusNotFound,
+					Payload: nil,
+					Error: &model.ErrorInfo{
+							ErrorType: "NOT_FOUND",
+							Code:      http.StatusNotFound,
+							Message:   "Problem statistics not found",
+							Details:   "No statistics available for the given userID",
+					},
+			})
+			return
+	}
+
+	// Map the gRPC response to the ProblemsDoneStatistics struct
+	statistics := model.ProblemsDoneStatistics{
+			MaxEasyCount:    resp.Data.MaxEasyCount,
+			DoneEasyCount:   resp.Data.DoneEasyCount,
+			MaxMediumCount:  resp.Data.MaxMediumCount,
+			DoneMediumCount: resp.Data.DoneMediumCount,
+			MaxHardCount:    resp.Data.MaxHardCount,
+			DoneHardCount:   resp.Data.DoneHardCount,
+	}
+
+	// Return the successful response
+	ctx.JSON(http.StatusOK, model.GenericResponse{
+			Success: true,
+			Status:  http.StatusOK,
+			Payload: statistics,
+			Error:   nil,
+	})
+}

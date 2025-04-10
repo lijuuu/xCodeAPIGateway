@@ -1,23 +1,66 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // UserProfile represents a user's profile information
 type UserProfile struct {
-	UserID            string  `json:"userID"`
-	UserName          string  `json:"userName"`
-	FirstName         string  `json:"firstName"`
-	LastName          string  `json:"lastName"`
-	AvatarURL         string  `json:"avatarURL"`
-	Email             string  `json:"email"`
-	Role              string  `json:"role"`
-	Country           string  `json:"country"`
-	IsBanned          bool    `json:"isBanned"`
-	IsVerified        bool    `json:"isVerified"`
-	PrimaryLanguageID string  `json:"primaryLanguageID"`
-	MuteNotifications bool    `json:"muteNotifications"`
-	Socials           Socials `json:"socials"`
-	CreatedAt         int64   `json:"createdAt"`
+	UserID                  string                  `json:"userID"`
+	UserName                string                  `json:"userName"`
+	FirstName               string                  `json:"firstName"`
+	LastName                string                  `json:"lastName"`
+	AvatarURL               string                  `json:"avatarURL"`
+	Email                   string                  `json:"email"`
+	Role                    string                  `json:"role"`
+	Country                 string                  `json:"country"`
+	IsBanned                bool                    `json:"isBanned"`
+	IsVerified              bool                    `json:"isVerified"`
+	PrimaryLanguageID       string                  `json:"primaryLanguageID"`
+	MuteNotifications       bool                    `json:"muteNotifications"`
+	Socials                 Socials                 `json:"socials"`
+	CreatedAt               int64                   `json:"createdAt"`
+	ProblemSolvedStatsCount ProblemSolvedStatsCount `json:"problemSolvedStatsCount"`
+}
+
+type ProblemSolvedStatsCount struct {
+	EasyCount      int `json:"easyCount"`
+	MediumCount    int `json:"mediumCount"`
+	HardCount      int `json:"hardCount"`
+	MaxEasyCount   int `json:"maxEasyCount"`
+	MaxMediumCount int `json:"maxMediumCount"`
+	MaxHardCount   int `json:"maxHardCount"`
+}
+
+// to add new problem submission entry that is unique and first, this is used for leaderboard querying, Need- inorder to do faster query we cut down the struct and store this in another place.
+type ProblemDone struct {
+	UserID      string    `json:"userId" bson:"user_id"`
+	ProblemID   string    `json:"problemId" bson:"problem_id"`
+	Title       string    `json:"title" bson:"title"`
+	Language    string    `json:"language" bson:"language"`
+	Difficulty  string    `json:"difficulty" bson:"difficulty"`
+	SubmittedAt time.Time `json:"submittedAt" bson:"submitted_at"`
+}
+
+type SubmissionHistoryResponse struct {
+	Submissions []Submission `json:"submissions"`
+}
+
+type Submission struct {
+	ID            string    `json:"id" bson:"id"`
+	UserID        string    `json:"userId" bson:"user_id"`
+	ProblemID     string    `json:"problemId" bson:"problem_id"`
+	ChallengeID   string    `json:"challengeId,omitempty" bson:"challenge_id"`
+	SubmittedAt   time.Time `json:"submittedAt" bson:"submitted_at"`
+	Status        string    `json:"status" bson:"status"`
+	Output        string    `json:"output,omitempty" bson:"output"`
+	UserCode      string    `json:"userCode" bson:"userCode"`
+	Language      string    `json:"language" bson:"language"`
+	Score         int       `json:"score" bson:"score"`
+	ExecutionTime float64   `json:"executionTime,omitempty" bson:"execution_time"`
+	Difficulty    string    `json:"difficulty" bson:"difficulty"`
+	IsFirst       bool      `json:"isFirst" bson:"is_first"`
+	Title         string    `json:"title"`
 }
 
 // BanHistory represents a single ban record
@@ -222,25 +265,12 @@ type ExecutionResultJSON struct {
 	Summary       string `json:"summary,omitempty"`
 }
 
-type Submission struct {
-	ID            string    `db:"id"`
-	UserID        string    `db:"user_id"`
-	ProblemID     string    `db:"problem_id"`
-	ChallengeID   *string   `db:"challenge_id"` // Optional
-	SubmittedAt   time.Time `db:"submitted_at"`
-	Status        string    `db:"status"` // PENDING, FAILED, SUCCESS
-	Output        string    `db:"output"`
-	Language      string    `db:"language"`
-	Score         int       `db:"score"`
-	ExecutionTime float64   `db:"execution_time"`
-	Difficulty    string    `db:"difficulty"` // easy, medium, hard
-	IsFirstAC     bool      `db:"is_first_ac"`
-}
 
-type UserProblemStat struct {
-	UserID      string    `db:"user_id"`
-	ProblemID   string    `db:"problem_id"`
-	Difficulty  string    `db:"difficulty"` // easy, medium, hard
-	Score       int       `db:"score"`
-	SubmittedAt time.Time `db:"submitted_at"`
+type ProblemsDoneStatistics struct {
+	MaxEasyCount    int32 `json:"maxEasyCount" bson:"maxEasyCount"`
+	DoneEasyCount   int32 `json:"doneEasyCount" bson:"doneEasyCount"`
+	MaxMediumCount  int32 `json:"maxMediumCount" bson:"maxMediumCount"`
+	DoneMediumCount int32 `json:"doneMediumCount" bson:"doneMediumCount"`
+	MaxHardCount    int32 `json:"maxHardCount" bson:"maxHardCount"`
+	DoneHardCount   int32 `json:"doneHardCount" bson:"doneHardCount"`
 }

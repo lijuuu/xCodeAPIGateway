@@ -254,8 +254,14 @@ type TestCaseResult struct {
 	Error         string      `json:"error,omitempty"`
 }
 
-
 type TestCase struct {
 	Input    json.RawMessage `json:"input"`
 	Expected json.RawMessage `json:"expected"`
+}
+
+type GetSubmissionHistoryOptionalProblemId struct {
+	UserID    string `json:"userID"`
+	ProblemID string `json:"problemID,omitempty"`
+	Page      int    `json:"page,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
 }
