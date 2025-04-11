@@ -1960,6 +1960,82 @@ func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 	})
 }
 
+func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
+	// get userid from context
+	userID, exists := c.Get(middleware.EntityIDKey)
+	if !exists {
+			c.JSON(http.StatusUnauthorized, model.GenericResponse{
+					Success: false,
+					Status:  http.StatusUnauthorized,
+					Payload: nil,
+					Error: &model.ErrorInfo{
+							ErrorType: customerrors.ERR_UNAUTHORIZED,
+							Code:      http.StatusUnauthorized,
+							Message:   "unauthorized",
+							Details:   "user not authenticated",
+					},
+			})
+			return
+	}
+
+	// parse request
+	var req struct {
+			TwoFactorCode string `json:"otp" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, model.GenericResponse{
+					Success: false,
+					Status:  http.StatusBadRequest,
+					Payload: nil,
+					Error: &model.ErrorInfo{
+							ErrorType: customerrors.ERR_INVALID_REQUEST,
+							Code:      http.StatusBadRequest,
+							Message:   "invalid request",
+							Details:   "two factor code is required",
+					},
+			})
+			return
+	}
+
+	// verify code
+	verifyRequest := &AuthUserAdminService.VerifyTwoFactorAuthRequest{
+			UserID:        userID.(string),
+			TwoFactorCode: req.TwoFactorCode,
+	}
+
+	resp, err := uc.userClient.VerifyTwoFactorAuth(c.Request.Context(), verifyRequest)
+	if err != nil {
+			grpcStatus, _ := status.FromError(err)
+			errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+			httpCode := mapGrpcCodeToHttp(grpcCode)
+
+			c.JSON(httpCode, model.GenericResponse{
+					Success: false,
+					Status:  httpCode,
+					Payload: nil,
+					Error: &model.ErrorInfo{
+							ErrorType: errorType,
+							Code:      httpCode,
+							Message:   "verification failed",
+							Details:   details,
+					},
+			})
+			return
+	}
+
+	// return success
+	c.JSON(http.StatusOK, model.GenericResponse{
+			Success: true,
+			Status:  http.StatusOK,
+			Payload: map[string]interface{}{
+					"verified": resp.Verified,
+					"message":  resp.Message,
+			},
+			Error: nil,
+	})
+}
+
 func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 	var req model.DisableTwoFactorAuthRequest
 	userID, _ := c.Get(middleware.EntityIDKey)
@@ -1982,6 +2058,7 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 	deleteTwoFactorAuthRequest := &AuthUserAdminService.DisableTwoFactorAuthRequest{
 		UserID:   req.UserID,
 		Password: req.Password,
+		Otp: req.Otp,
 	}
 
 	resp, err := uc.userClient.DisableTwoFactorAuth(c.Request.Context(), deleteTwoFactorAuthRequest)

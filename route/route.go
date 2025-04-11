@@ -96,9 +96,16 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		security := users.Group("/security")
 		{
 			security.POST("/password/change", userController.ChangePasswordHandler)
+		// 	type ChangePasswordRequest struct {
+		// 		// UserID          string `json:"userID"` from context no need in body
+		// 		OldPassword     string `json:"oldPassword"`
+		// 		NewPassword     string `json:"newPassword"`
+		// 		ConfirmPassword string `json:"confirmPassword"`
+		// }
 
-			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)     //http://localhost:7000/api/v1/users/security/2fa/setup
-			security.DELETE("/2fa/setup", userController.DisableTwoFactorAuthHandler) //http://localhost:7000/api/v1/users/security/2fa/setup
+			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)     //http://localhost:7000/api/v1/users/security/2fa/setup json:"password"
+			security.POST("/2fa/verify",userController.VerifyTwoFactorAuth) //json body :otp
+			security.DELETE("/2fa/setup", userController.DisableTwoFactorAuthHandler) //http://localhost:7000/api/v1/users/security/2fa/setup json:"password,otp"
 		}
 
 		// User search functionality

@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
-	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250411040829-023f18cfaa8f
+	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250411121514-fce403a0838d
 	github.com/nats-io/nats.go v1.39.1
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/oauth2 v0.24.0

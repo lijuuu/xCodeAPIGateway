@@ -232,6 +232,7 @@ type SetUpTwoFactorAuthRequest struct {
 type DisableTwoFactorAuthRequest struct {
 	UserID   string `json:"userID"`
 	Password string `json:"password"`
+	Otp      string `json:"otp"`
 }
 
 // type ExecuteUserCodeProblemIDRequest struct{
