@@ -10,14 +10,19 @@ import (
 // Config holds application configuration
 type Config struct {
 	// Environment
-	Environment    string
-	JWTSecretKey   string
+	Environment  string
+	JWTSecretKey string
 	// Microservices
-	APIGATEWAYPORT string
-	UserGRPCPort   string
-	CompilerGRPCPort string
-	ProblemGRPCPort string
-	NATSURL string
+	APIGATEWAYPORT     string
+	UserGRPCPort       string
+	CompilerGRPCPort   string
+	ProblemGRPCPort    string
+	NATSURL            string
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+
+	FrontendURL string
 }
 
 // LoadConfig loads configuration from environment variables with defaults
@@ -28,13 +33,18 @@ func LoadConfig() Config {
 	}
 
 	return Config{
-		Environment:    getEnv("ENVIRONMENT", "development"),
-		JWTSecretKey:   getEnv("JWTSECRETKEY", "secretLeetcode"),
-		APIGATEWAYPORT: getEnv("APIGATEWAYPORT", "7000"),
-		UserGRPCPort:   getEnv("USERGRPCPORT", "50051"),
-		CompilerGRPCPort: getEnv("COMPILERGRPCPORT", "50053"),
-		ProblemGRPCPort: getEnv("PROBLEMGRPCPORT", "50055"),
-		NATSURL: getEnv("NATSURL", "nats://localhost:4222"),
+		Environment:        getEnv("ENVIRONMENT", "development"),
+		JWTSecretKey:       getEnv("JWTSECRETKEY", "secretLeetcode"),
+		APIGATEWAYPORT:     getEnv("APIGATEWAYPORT", "7000"),
+		UserGRPCPort:       getEnv("USERGRPCPORT", "50051"),
+		CompilerGRPCPort:   getEnv("COMPILERGRPCPORT", "50053"),
+		ProblemGRPCPort:    getEnv("PROBLEMGRPCPORT", "50055"),
+		NATSURL:            getEnv("NATSURL", "nats://localhost:4222"),
+		GoogleClientID:     getEnv("GOOGLECLIENTID", ""),
+		GoogleClientSecret: getEnv("GOOGLECLIENTSECRET", ""),
+		GoogleRedirectURL:  getEnv("GOOGLEREDIRECTURL", ""),
+
+		FrontendURL: getEnv("FRONTENDURL", "http://localhost:8080"),
 	}
 }
 

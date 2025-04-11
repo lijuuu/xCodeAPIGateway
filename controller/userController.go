@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"xcode/configs"
 	"xcode/customerrors"
 	"xcode/middleware"
 	"xcode/model"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -20,12 +23,22 @@ import (
 // UserController handles user-related API requests
 type UserController struct {
 	userClient AuthUserAdminService.AuthUserAdminServiceClient
+	googleCfg  *oauth2.Config
 }
 
 // NewUserController creates a new instance of UserController
 func NewUserController(userClient AuthUserAdminService.AuthUserAdminServiceClient) *UserController {
+	config := configs.LoadConfig()
+	googleCfg := &oauth2.Config{
+		ClientID:     config.GoogleClientID,
+		ClientSecret: config.GoogleClientSecret,
+		RedirectURL:  config.GoogleRedirectURL,
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
+		Endpoint:     google.Endpoint,
+	}
 	return &UserController{
 		userClient: userClient,
+		googleCfg:  googleCfg,
 	}
 }
 
@@ -190,6 +203,67 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 		},
 		Error: nil,
 	})
+}
+
+func (uc *UserController) GoogleLoginInitiate(c *gin.Context) {
+	url := uc.googleCfg.AuthCodeURL("state", oauth2.AccessTypeOffline)
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: map[string]string{"url": url},
+		Error:   nil,
+	})
+}
+
+func (uc *UserController) GoogleLoginCallback(c *gin.Context) {
+	code := c.Query("code")
+	if code == "" {
+			// Redirect to frontend with error details
+			config := configs.LoadConfig()
+			redirectURL := fmt.Sprintf("%s/login?success=false&type=ERR_INVALID_REQUEST&message=Missing code parameter&details=Google OAuth code is required",
+					config.FrontendURL)
+			c.Redirect(http.StatusFound, redirectURL)
+			return
+	}
+
+	token, err := uc.googleCfg.Exchange(c.Request.Context(), code)
+	if err != nil {
+			// Redirect to frontend with error details
+			config := configs.LoadConfig()
+			redirectURL := fmt.Sprintf("%s/login?success=false&type=ERR_INVALID_REQUEST&message=Google login failed&details=Google auth failed in exchange",
+					config.FrontendURL)
+			c.Redirect(http.StatusFound, redirectURL)
+			return
+	}
+
+	googleReq := &AuthUserAdminService.GoogleLoginRequest{
+			IdToken: token.AccessToken,
+	}
+
+	resp, err := uc.userClient.LoginWithGoogle(c.Request.Context(), googleReq)
+	if err != nil {
+			grpcStatus, _ := status.FromError(err)
+			errorType, _, details := parseGrpcError(grpcStatus.Message())
+
+			// Redirect to frontend with error details
+			config := configs.LoadConfig()
+			redirectURL := fmt.Sprintf("%s/login?success=false&type=%s&message=Google login failed&details=%s",
+					config.FrontendURL, errorType, details)
+			c.Redirect(http.StatusFound, redirectURL)
+			return
+	}
+
+	// Redirect the user to the frontend URL with tokens in query parameters
+	config := configs.LoadConfig()
+	redirectURL := fmt.Sprintf("%s?success=true&accessToken=%s&refreshToken=%s&expiresIn=%d&userID=%s",
+			config.FrontendURL,
+			resp.AccessToken,
+			resp.RefreshToken,
+			resp.ExpiresIn,
+			resp.UserID,
+	)
+
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func (uc *UserController) LoginAdminHandler(c *gin.Context) {

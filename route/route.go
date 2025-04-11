@@ -47,6 +47,9 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 		auth.POST("/register", userController.RegisterUserHandler)
 		auth.POST("/login", userController.LoginUserHandler)
 		// auth.GET("/login/google", userController)
+		auth.GET("/google/login", userController.GoogleLoginInitiate)
+		auth.GET("/google/callback", userController.GoogleLoginCallback)
+
 		auth.POST("/token/refresh", userController.TokenRefreshHandler)
 		auth.GET("/verify", userController.VerifyUserHandler)                     // ?email=user@example.com&token=123456
 		auth.GET("/verify/resend", userController.ResendEmailVerificationHandler) // ?email=user@example.com
