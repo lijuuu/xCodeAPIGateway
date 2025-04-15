@@ -819,7 +819,7 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	// Parse the successful execution result
 	var output model.UniversalExecutionResult
 	if err := json.Unmarshal([]byte(resp2.Message), &output); err != nil {
-		fmt.Println(err,output)
+		fmt.Println(err, output)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1062,6 +1062,88 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: statistics,
+		Error:   nil,
+	})
+}
+
+func (c *ProblemController) GetMonthlyActivityHeatmapController(ctx *gin.Context) {
+	type MonthlyActivityHeatmapRequest struct {
+		UserID string `json:"userID" binding:"required"`
+		Month  int    `json:"month"`
+		Year   int    `json:"year"`
+	}
+	var req MonthlyActivityHeatmapRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Invalid request",
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	if req.UserID == "" || req.Month == 0 || req.Year == 0 {
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing or invalid required fields",
+				Details:   "userID, month, and year must be provided and valid",
+			},
+		})
+		return
+	}
+
+	grpcReq := &pb.GetMonthlyActivityHeatmapRequest{
+		UserID: req.UserID,
+		Month:  int32(req.Month),
+		Year:   int32(req.Year),
+	}
+
+	resp, err := c.problemClient.GetMonthlyActivityHeatmap(ctx.Request.Context(), grpcReq)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: "GRPC_ERROR",
+				Code:      http.StatusInternalServerError,
+				Message:   "Failed to fetch monthly activity heatmap",
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	if resp.Data == nil {
+		ctx.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: "NOT_FOUND",
+				Code:      http.StatusNotFound,
+				Message:   "Monthly activity heatmap not found",
+				Details:   "No data available for the given userID, month, and year",
+			},
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp.Data,
 		Error:   nil,
 	})
 }

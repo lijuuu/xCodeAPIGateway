@@ -924,11 +924,12 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
-	userIDparams := c.Param("userID")
+	userNameparams := c.Query("username")
+	userIDparams := c.Query("userid")
 
-	fmt.Println("useridparam ", userIDparams)
+	// fmt.Println("useridparam ", userIDparams)
 
-	if userIDparams == "" {
+	if userNameparams == "" && userIDparams == ""{
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusUnauthorized,
@@ -936,8 +937,8 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
-				Message:   "Failed to get user ID from param",
-				Details:   "userID is required",
+				Message:   "Failed to get user name from query",
+				Details:   "username is required",
 			},
 		})
 		return
@@ -945,6 +946,7 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 
 	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
 		UserID: userIDparams,
+		UserName: &userNameparams,
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)

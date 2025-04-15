@@ -65,7 +65,7 @@ func setupPublicAuthRoutes(apiV1 *gin.RouterGroup, userController *controller.Us
 func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller.UserController, jwtSecret string) {
 
 	users := apiV1.Group("/users")
-	users.GET("/public/profile", userController.GetUserProfilePublicHandler)
+	users.GET("/public/profile", userController.GetUserProfilePublicHandler) //query username = "johnn" or userid
 	users.GET("/username/available", userController.UserAvailable) //query username = "johnnn"
 
 	users.Use(
@@ -113,6 +113,8 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		users.GET("/search", userController.SearchUsersHandler) // ?query=abc&pageToken=def&limit=10
 
 		users.POST("/logout", userController.LogoutUserHandler)
+
+		//activity
 	}
 }
 
@@ -175,5 +177,8 @@ func setUPProblemRoutes(apiV1 *gin.RouterGroup, problemController *controller.Pr
 		// Page      int    `json:"page"`
 		// Limit     int    `json:"limit"`
 		problem.GET("/stats", problemController.GetProblemStatistics) //query params userID=?
+
+		//activity
+		problem.GET("/activity",problemController.GetMonthlyActivityHeatmapController) //JSON body : userID ,year,month
 	}
 }

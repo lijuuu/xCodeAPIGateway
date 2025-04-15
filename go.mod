@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
-	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250415063058-c9c7311facfa
+	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250415125213-6b170f6cbbd8
 	github.com/nats-io/nats.go v1.39.1
 	github.com/redis/go-redis v6.15.9+incompatible
 	github.com/sirupsen/logrus v1.9.3
