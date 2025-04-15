@@ -66,6 +66,7 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 
 	users := apiV1.Group("/users")
 	users.GET("/public/profile", userController.GetUserProfilePublicHandler)
+	users.GET("/username/available",userController.UserAvailable) //query username = "johnnn" 
 
 	users.Use(
 		middleware.JWTAuthMiddleware(jwtSecret),

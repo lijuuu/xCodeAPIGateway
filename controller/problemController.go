@@ -976,74 +976,75 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 	// Extract userID from query parameters
 	userID := ctx.Query("userID")
 	if userID == "" {
-			ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-					Success: false,
-					Status:  http.StatusBadRequest,
-					Payload: nil,
-					Error: &model.ErrorInfo{
-							ErrorType: customerrors.ERR_INVALID_REQUEST,
-							Code:      http.StatusBadRequest,
-							Message:   "Missing required field: userID",
-							Details:   "The userID query parameter is required",
-					},
-			})
-			return
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing required field: userID",
+				Details:   "The userID query parameter is required",
+			},
+		})
+		return
 	}
 
 	// Prepare the gRPC request
 	grpcReq := &pb.GetProblemsDoneStatisticsRequest{
-			UserId: userID,
+		UserId: userID,
 	}
 
 	// Call the gRPC service
 	resp, err := c.problemClient.GetProblemsDoneStatistics(ctx.Request.Context(), grpcReq)
 	if err != nil {
-			grpcStatus, _ := status.FromError(err)
-			ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
-					Success: false,
-					Status:  http.StatusInternalServerError,
-					Payload: nil,
-					Error: &model.ErrorInfo{
-							ErrorType: "GRPC_ERROR",
-							Code:      http.StatusInternalServerError,
-							Message:   "Failed to fetch problem statistics",
-							Details:   grpcStatus.Message(),
-					},
-			})
-			return
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: "GRPC_ERROR",
+				Code:      http.StatusInternalServerError,
+				Message:   "Failed to fetch problem statistics",
+				Details:   grpcStatus.Message(),
+			},
+		})
+		return
 	}
 
 	// Check if the response data is nil
 	if resp.Data == nil {
-			ctx.JSON(http.StatusNotFound, model.GenericResponse{
-					Success: false,
-					Status:  http.StatusNotFound,
-					Payload: nil,
-					Error: &model.ErrorInfo{
-							ErrorType: "NOT_FOUND",
-							Code:      http.StatusNotFound,
-							Message:   "Problem statistics not found",
-							Details:   "No statistics available for the given userID",
-					},
-			})
-			return
+		ctx.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: "NOT_FOUND",
+				Code:      http.StatusNotFound,
+				Message:   "Problem statistics not found",
+				Details:   "No statistics available for the given userID",
+			},
+		})
+		return
 	}
 
 	// Map the gRPC response to the ProblemsDoneStatistics struct
 	statistics := model.ProblemsDoneStatistics{
-			MaxEasyCount:    resp.Data.MaxEasyCount,
-			DoneEasyCount:   resp.Data.DoneEasyCount,
-			MaxMediumCount:  resp.Data.MaxMediumCount,
-			DoneMediumCount: resp.Data.DoneMediumCount,
-			MaxHardCount:    resp.Data.MaxHardCount,
-			DoneHardCount:   resp.Data.DoneHardCount,
+		MaxEasyCount:    resp.Data.MaxEasyCount,
+		DoneEasyCount:   resp.Data.DoneEasyCount,
+		MaxMediumCount:  resp.Data.MaxMediumCount,
+		DoneMediumCount: resp.Data.DoneMediumCount,
+		MaxHardCount:    resp.Data.MaxHardCount,
+		DoneHardCount:   resp.Data.DoneHardCount,
 	}
 
 	// Return the successful response
 	ctx.JSON(http.StatusOK, model.GenericResponse{
-			Success: true,
-			Status:  http.StatusOK,
-			Payload: statistics,
-			Error:   nil,
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: statistics,
+		Error:   nil,
 	})
 }
+

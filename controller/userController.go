@@ -218,49 +218,49 @@ func (uc *UserController) GoogleLoginInitiate(c *gin.Context) {
 func (uc *UserController) GoogleLoginCallback(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
-			// Redirect to frontend with error details
-			config := configs.LoadConfig()
-			redirectURL := fmt.Sprintf("%s/login?success=false&type=ERR_INVALID_REQUEST&message=Missing code parameter&details=Google OAuth code is required",
-					config.FrontendURL)
-			c.Redirect(http.StatusFound, redirectURL)
-			return
+		// Redirect to frontend with error details
+		config := configs.LoadConfig()
+		redirectURL := fmt.Sprintf("%s/login?success=false&type=ERR_INVALID_REQUEST&message=Missing code parameter&details=Google OAuth code is required",
+			config.FrontendURL)
+		c.Redirect(http.StatusFound, redirectURL)
+		return
 	}
 
 	token, err := uc.googleCfg.Exchange(c.Request.Context(), code)
 	if err != nil {
-			// Redirect to frontend with error details
-			config := configs.LoadConfig()
-			redirectURL := fmt.Sprintf("%s/login?success=false&type=ERR_INVALID_REQUEST&message=Google login failed&details=Google auth failed in exchange",
-					config.FrontendURL)
-			c.Redirect(http.StatusFound, redirectURL)
-			return
+		// Redirect to frontend with error details
+		config := configs.LoadConfig()
+		redirectURL := fmt.Sprintf("%s/login?success=false&type=ERR_INVALID_REQUEST&message=Google login failed&details=Google auth failed in exchange",
+			config.FrontendURL)
+		c.Redirect(http.StatusFound, redirectURL)
+		return
 	}
 
 	googleReq := &AuthUserAdminService.GoogleLoginRequest{
-			IdToken: token.AccessToken,
+		IdToken: token.AccessToken,
 	}
 
 	resp, err := uc.userClient.LoginWithGoogle(c.Request.Context(), googleReq)
 	if err != nil {
-			grpcStatus, _ := status.FromError(err)
-			errorType, _, details := parseGrpcError(grpcStatus.Message())
+		grpcStatus, _ := status.FromError(err)
+		errorType, _, details := parseGrpcError(grpcStatus.Message())
 
-			// Redirect to frontend with error details
-			config := configs.LoadConfig()
-			redirectURL := fmt.Sprintf("%s/login?success=false&type=%s&message=Google login failed&details=%s",
-					config.FrontendURL, errorType, details)
-			c.Redirect(http.StatusFound, redirectURL)
-			return
+		// Redirect to frontend with error details
+		config := configs.LoadConfig()
+		redirectURL := fmt.Sprintf("%s/login?success=false&type=%s&message=Google login failed&details=%s",
+			config.FrontendURL, errorType, details)
+		c.Redirect(http.StatusFound, redirectURL)
+		return
 	}
 
 	// Redirect the user to the frontend URL with tokens in query parameters
 	config := configs.LoadConfig()
 	redirectURL := fmt.Sprintf("%s?success=true&accessToken=%s&refreshToken=%s&expiresIn=%d&userID=%s",
-			config.FrontendURL,
-			resp.AccessToken,
-			resp.RefreshToken,
-			resp.ExpiresIn,
-			resp.UserID,
+		config.FrontendURL,
+		resp.AccessToken,
+		resp.RefreshToken,
+		resp.ExpiresIn,
+		resp.UserID,
 	)
 
 	c.Redirect(http.StatusFound, redirectURL)
@@ -752,6 +752,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		FirstName:         req.FirstName,
 		LastName:          req.LastName,
 		Country:           req.Country,
+		Bio:               req.Bio,
 		PrimaryLanguageID: req.PrimaryLanguageID,
 		MuteNotifications: req.MuteNotifications,
 		Socials: &AuthUserAdminService.Socials{
@@ -760,6 +761,8 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 			Linkedin: req.Socials.Linkedin,
 		},
 	}
+
+	fmt.Println("before udpate ", updateProfileRequest)
 
 	resp, err := uc.userClient.UpdateProfile(c.Request.Context(), updateProfileRequest)
 	if err != nil {
@@ -1964,75 +1967,75 @@ func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
 	// get userid from context
 	userID, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
-			c.JSON(http.StatusUnauthorized, model.GenericResponse{
-					Success: false,
-					Status:  http.StatusUnauthorized,
-					Payload: nil,
-					Error: &model.ErrorInfo{
-							ErrorType: customerrors.ERR_UNAUTHORIZED,
-							Code:      http.StatusUnauthorized,
-							Message:   "unauthorized",
-							Details:   "user not authenticated",
-					},
-			})
-			return
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "unauthorized",
+				Details:   "user not authenticated",
+			},
+		})
+		return
 	}
 
 	// parse request
 	var req struct {
-			TwoFactorCode string `json:"otp" binding:"required"`
+		TwoFactorCode string `json:"otp" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, model.GenericResponse{
-					Success: false,
-					Status:  http.StatusBadRequest,
-					Payload: nil,
-					Error: &model.ErrorInfo{
-							ErrorType: customerrors.ERR_INVALID_REQUEST,
-							Code:      http.StatusBadRequest,
-							Message:   "invalid request",
-							Details:   "two factor code is required",
-					},
-			})
-			return
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "invalid request",
+				Details:   "two factor code is required",
+			},
+		})
+		return
 	}
 
 	// verify code
 	verifyRequest := &AuthUserAdminService.VerifyTwoFactorAuthRequest{
-			UserID:        userID.(string),
-			TwoFactorCode: req.TwoFactorCode,
+		UserID:        userID.(string),
+		TwoFactorCode: req.TwoFactorCode,
 	}
 
 	resp, err := uc.userClient.VerifyTwoFactorAuth(c.Request.Context(), verifyRequest)
 	if err != nil {
-			grpcStatus, _ := status.FromError(err)
-			errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
-			httpCode := mapGrpcCodeToHttp(grpcCode)
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
 
-			c.JSON(httpCode, model.GenericResponse{
-					Success: false,
-					Status:  httpCode,
-					Payload: nil,
-					Error: &model.ErrorInfo{
-							ErrorType: errorType,
-							Code:      httpCode,
-							Message:   "verification failed",
-							Details:   details,
-					},
-			})
-			return
+		c.JSON(httpCode, model.GenericResponse{
+			Success: false,
+			Status:  httpCode,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "verification failed",
+				Details:   details,
+			},
+		})
+		return
 	}
 
 	// return success
 	c.JSON(http.StatusOK, model.GenericResponse{
-			Success: true,
-			Status:  http.StatusOK,
-			Payload: map[string]interface{}{
-					"verified": resp.Verified,
-					"message":  resp.Message,
-			},
-			Error: nil,
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: map[string]interface{}{
+			"verified": resp.Verified,
+			"message":  resp.Message,
+		},
+		Error: nil,
 	})
 }
 
@@ -2058,7 +2061,7 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 	deleteTwoFactorAuthRequest := &AuthUserAdminService.DisableTwoFactorAuthRequest{
 		UserID:   req.UserID,
 		Password: req.Password,
-		Otp: req.Otp,
+		Otp:      req.Otp,
 	}
 
 	resp, err := uc.userClient.DisableTwoFactorAuth(c.Request.Context(), deleteTwoFactorAuthRequest)
@@ -2097,6 +2100,8 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 		return model.UserProfile{}
 	}
 
+	// fmt.Println(protoProfile)
+
 	var socials model.Socials
 	if protoProfile.Socials != nil {
 		socials = model.Socials{
@@ -2114,6 +2119,7 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 		AvatarURL:         protoProfile.AvatarData,
 		IsVerified:        protoProfile.IsVerified,
 		Email:             protoProfile.Email,
+		Bio:               protoProfile.Bio,
 		Role:              protoProfile.Role,
 		Country:           protoProfile.Country,
 		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
@@ -2121,6 +2127,53 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 		Socials:           socials,
 		CreatedAt:         protoProfile.CreatedAt,
 	}
+}
+
+func (uc *UserController) UserAvailable(ctx *gin.Context) {
+	username := ctx.Query("username")
+	available := false
+	if username == "" {
+		ctx.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: map[string]interface{}{
+				"available": available,
+			},
+			Error: &model.ErrorInfo{
+				ErrorType: "NOT_FOUND",
+				Code:      http.StatusNotFound,
+				Message:   "username not found",
+				Details:   "username not found, available for user",
+			},
+		})
+
+		return
+	}
+
+	resp, _ := uc.userClient.UsernameAvailable(ctx.Request.Context(), &AuthUserAdminService.UsernameAvailableRequest{
+		Username: username,
+	})
+
+	fmt.Println(resp)
+
+	if resp.Status {
+		available = true
+	}
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{
+		Success: available,
+		Status:  http.StatusOK,
+		Payload: map[string]interface{}{
+			"available": available,
+		},
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "",
+			Details:   "",
+		},
+	})
+
 }
 
 func mapUserProfiles(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {

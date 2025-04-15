@@ -13,6 +13,7 @@ type UserProfile struct {
 	AvatarURL               string                  `json:"avatarURL"`
 	Email                   string                  `json:"email"`
 	Role                    string                  `json:"role"`
+	Bio                     string                  `json:"bio"`
 	Country                 string                  `json:"country"`
 	IsBanned                bool                    `json:"isBanned"`
 	IsVerified              bool                    `json:"isVerified"`
@@ -264,7 +265,6 @@ type ExecutionResultJSON struct {
 	Passed        bool   `json:"passed"`
 	Summary       string `json:"summary,omitempty"`
 }
-
 
 type ProblemsDoneStatistics struct {
 	MaxEasyCount    int32 `json:"maxEasyCount" bson:"maxEasyCount"`

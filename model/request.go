@@ -97,6 +97,7 @@ type UpdateProfileRequest struct {
 	PrimaryLanguageID string  `json:"primaryLanguageID"`
 	MuteNotifications bool    `json:"muteNotifications"`
 	Socials           Socials `json:"socials"`
+	Bio               string  `json:"bio"`
 }
 
 // UpdateProfileImageRequest for PUT /api/v1/users/profile/image (JSON body)
