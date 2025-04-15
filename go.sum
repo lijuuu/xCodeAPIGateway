@@ -80,6 +80,8 @@ github.com/lijuuu/GlobalProtoXcode v0.0.0-20250412033924-6fec32126e97 h1:SnGUWSr
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250412033924-6fec32126e97/go.mod h1:Tt/SSoiRXSrQ+uVdaJrJsI5rWicuZcRDFOsrybrvclA=
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250415050907-cdd69034720f h1:LfOAR0/wAkF09Fk5WFyIdowSRDAVCVUxzd4rNLPk2Cc=
 github.com/lijuuu/GlobalProtoXcode v0.0.0-20250415050907-cdd69034720f/go.mod h1:Tt/SSoiRXSrQ+uVdaJrJsI5rWicuZcRDFOsrybrvclA=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250415063058-c9c7311facfa h1:mbNaE7cVtsb0UAf0OVWEOT6ddxNikuhc98V0v67c1Dk=
+github.com/lijuuu/GlobalProtoXcode v0.0.0-20250415063058-c9c7311facfa/go.mod h1:Tt/SSoiRXSrQ+uVdaJrJsI5rWicuZcRDFOsrybrvclA=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

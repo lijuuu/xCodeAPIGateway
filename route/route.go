@@ -27,7 +27,7 @@ func SetupRoutes(router *gin.Engine, clients *clients.ClientConnections, jwtSecr
 	compilerController := controller.NewCompilerController(natsClient)
 
 	problemClient := ProblemsService.NewProblemsServiceClient(clients.ConnProblem)
-	problemController := controller.NewProblemController(problemClient)
+	problemController := controller.NewProblemController(problemClient,userClient)
 
 	// Base API group with version prefix
 	apiV1 := router.Group("/api/v1")
@@ -66,7 +66,7 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 
 	users := apiV1.Group("/users")
 	users.GET("/public/profile", userController.GetUserProfilePublicHandler)
-	users.GET("/username/available",userController.UserAvailable) //query username = "johnnn" 
+	users.GET("/username/available", userController.UserAvailable) //query username = "johnnn"
 
 	users.Use(
 		middleware.JWTAuthMiddleware(jwtSecret),
@@ -97,15 +97,15 @@ func setupProtectedUserRoutes(apiV1 *gin.RouterGroup, userController *controller
 		security := users.Group("/security")
 		{
 			security.POST("/password/change", userController.ChangePasswordHandler)
-		// 	type ChangePasswordRequest struct {
-		// 		// UserID          string `json:"userID"` from context no need in body
-		// 		OldPassword     string `json:"oldPassword"`
-		// 		NewPassword     string `json:"newPassword"`
-		// 		ConfirmPassword string `json:"confirmPassword"`
-		// }
+			// 	type ChangePasswordRequest struct {
+			// 		// UserID          string `json:"userID"` from context no need in body
+			// 		OldPassword     string `json:"oldPassword"`
+			// 		NewPassword     string `json:"newPassword"`
+			// 		ConfirmPassword string `json:"confirmPassword"`
+			// }
 
 			security.POST("/2fa/setup", userController.SetUpTwoFactorAuthHandler)     //http://localhost:7000/api/v1/users/security/2fa/setup json:"password"
-			security.POST("/2fa/verify",userController.VerifyTwoFactorAuth) //json body :otp
+			security.POST("/2fa/verify", userController.VerifyTwoFactorAuth)          //json body :otp
 			security.DELETE("/2fa/setup", userController.DisableTwoFactorAuthHandler) //http://localhost:7000/api/v1/users/security/2fa/setup json:"password,otp"
 		}
 
@@ -168,12 +168,12 @@ func setUPProblemRoutes(apiV1 *gin.RouterGroup, problemController *controller.Pr
 		problem.GET("/metadata", problemController.GetProblemByIDSlugHandler)        // ?problem_id=uuid || slug=text
 		problem.GET("/metadata/list", problemController.GetProblemByIDListHandler)   // ?page=1&page_size=10&tags=tag1,tag2&difficulty=easy&search_query=text
 
-		problem.GET("submission/history",problemController.GetSubmissionHistoryOptionalProblemId) // type = recent show limit 10 and offset, or problemid . show limit 10 
+		problem.GET("submission/history", problemController.GetSubmissionHistoryOptionalProblemId) // type = recent show limit 10 and offset, or problemid . show limit 10
 		//http://localhost:7000/api/v1/problems/submission/history
 		// UserID    string `json:"userID"`
-    // ProblemID string `json:"problemID,omitempty"`
-    // Page      int    `json:"page"`
-    // Limit     int    `json:"limit"`
-		problem.GET("/stats",problemController.GetProblemStatistics)  //query params userID=?
+		// ProblemID string `json:"problemID,omitempty"`
+		// Page      int    `json:"page"`
+		// Limit     int    `json:"limit"`
+		problem.GET("/stats", problemController.GetProblemStatistics) //query params userID=?
 	}
 }

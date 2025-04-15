@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,16 +11,18 @@ import (
 	"xcode/model"
 
 	"github.com/gin-gonic/gin"
+	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
 	pb "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
 	"google.golang.org/grpc/status"
 )
 
 type ProblemController struct {
 	problemClient pb.ProblemsServiceClient
+	userClient    AuthUserAdminService.AuthUserAdminServiceClient
 }
 
-func NewProblemController(problemClient pb.ProblemsServiceClient) *ProblemController {
-	return &ProblemController{problemClient: problemClient}
+func NewProblemController(problemClient pb.ProblemsServiceClient, userClient AuthUserAdminService.AuthUserAdminServiceClient) *ProblemController {
+	return &ProblemController{problemClient: problemClient, userClient: userClient}
 }
 
 func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
@@ -651,6 +654,7 @@ func (c *ProblemController) GetProblemByIDListHandler(ctx *gin.Context) {
 
 func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	var req pb.RunProblemRequest
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		fmt.Println("bind json failed ", req)
 
@@ -679,20 +683,10 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	}
 
 	// userID, exists := ctx.Get(middleware.EntityIDKey)
-	// fmt.Println("no userID")
 	// if !exists || userID == nil {
-	// 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-	// 				Success: false,
-	// 				Status:  http.StatusBadRequest,
-	// 				Payload: nil,
-	// 				Error: &model.ErrorInfo{
-	// 						ErrorType: customerrors.ERR_BAD_REQUEST,
-	// 						Code:      http.StatusBadRequest,
-	// 						Message:   "User ID is missing or unauthorized",
-	// 						Details:   "Failed to retrieve user ID from context",
-	// 				},
-	// 		})
-	// 		return
+	// 	fmt.Println("no userID")
+	// } else {
+	// 	req.UserId = userID.(string)
 	// }
 
 	// Validate required fields
@@ -721,17 +715,40 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		return
 	}
 
+	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
+		UserID: req.UserId,
+	}
+
+	resp, err := c.userClient.GetUserProfile(context.Background(), getUserProfileRequest)
+	if err != nil {
+
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_CRED_CHECK_FAILED,
+				Code:      http.StatusBadRequest,
+				Message:   "run user's problem failed",
+				Details:   "run user's problem failed",
+			},
+		})
+		return
+	}
+
+	req.Country = &resp.UserProfile.Country
+
 	// Call the gRPC service
-	resp, err := c.problemClient.RunUserCodeProblem(ctx.Request.Context(), &req)
+	resp2, err := c.problemClient.RunUserCodeProblem(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
-				"problem_id":      resp.ProblemId,
-				"language":        resp.Language,
-				"is_run_testcase": resp.IsRunTestcase,
+				"problem_id":      req.ProblemId,
+				"language":        req.Language,
+				"is_run_testcase": req.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
@@ -753,7 +770,7 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	}
 
 	// Handle service response
-	if !resp.Success {
+	if !resp2.Success {
 		httpCode := http.StatusBadRequest
 		switch resp.ErrorType {
 		case "NOT_FOUND":
@@ -779,16 +796,16 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  httpCode,
 			Payload: map[string]interface{}{
-				"problem_id":      resp.ProblemId,
-				"language":        resp.Language,
-				"is_run_testcase": resp.IsRunTestcase,
+				"problem_id":      resp2.ProblemId,
+				"language":        resp2.Language,
+				"is_run_testcase": resp2.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
 					FailedTestCases: 0,
 					FailedTestCase: model.TestCaseResult{
 						TestCaseIndex: -1,
-						Error:         resp.Message,
+						Error:         resp2.Message,
 					},
 					OverallPass: overallPass,
 					SyntaxError: syntaxError,
@@ -801,14 +818,15 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 
 	// Parse the successful execution result
 	var output model.UniversalExecutionResult
-	if err := json.Unmarshal([]byte(resp.Message), &output); err != nil {
+	if err := json.Unmarshal([]byte(resp2.Message), &output); err != nil {
+		fmt.Println(err,output)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
-				"problem_id":      resp.ProblemId,
-				"language":        resp.Language,
-				"is_run_testcase": resp.IsRunTestcase,
+				"problem_id":      resp2.ProblemId,
+				"language":        resp2.Language,
+				"is_run_testcase": resp2.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
@@ -845,9 +863,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: map[string]interface{}{
-			"problem_id":      resp.ProblemId,
-			"language":        resp.Language,
-			"is_run_testcase": resp.IsRunTestcase,
+			"problem_id":      resp2.ProblemId,
+			"language":        resp2.Language,
+			"is_run_testcase": resp2.IsRunTestcase,
 			"rawoutput":       output,
 		},
 		Error: nil,
@@ -1047,4 +1065,3 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 		Error:   nil,
 	})
 }
-
