@@ -140,7 +140,7 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 			AccessToken:  resp.AccessToken,
 			RefreshToken: resp.RefreshToken,
 			ExpiresIn:    resp.ExpiresIn,
-			UserProfile:  mapUserProfile(resp.UserProfile),
+			UserProfile:  mapUserProfileHelper(resp.UserProfile),
 			Message:      resp.Message,
 		},
 		Error: nil,
@@ -198,7 +198,7 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 			RefreshToken: resp.RefreshToken,
 			ExpiresIn:    resp.ExpiresIn,
 			UserID:       resp.UserID,
-			UserProfile:  mapUserProfile(resp.UserProfile),
+			UserProfile:  mapUserProfileHelper(resp.UserProfile),
 			Message:      resp.Message,
 		},
 		Error: nil,
@@ -789,7 +789,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		Status:  http.StatusOK,
 		Payload: model.UpdateProfileResponse{
 			Message:     resp.Message,
-			UserProfile: mapUserProfile(resp.UserProfile),
+			UserProfile: mapUserProfileHelper(resp.UserProfile),
 		},
 		Error: nil,
 	})
@@ -916,7 +916,7 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.GetUserProfileResponse{
-			UserProfile: mapUserProfile(resp.UserProfile),
+			UserProfile: mapUserProfileHelper(resp.UserProfile),
 			Message:     resp.Message,
 		},
 		Error: nil,
@@ -927,9 +927,10 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 	userNameparams := c.Query("username")
 	userIDparams := c.Query("userid")
 
-	// fmt.Println("useridparam ", userIDparams)
+	fmt.Println("useridparam ", userIDparams)
+	fmt.Println("usernameparam ", userNameparams)
 
-	if userNameparams == "" && userIDparams == ""{
+	if userNameparams == "" && userIDparams == "" {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusUnauthorized,
@@ -945,7 +946,7 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 	}
 
 	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
-		UserID: userIDparams,
+		UserID:   userIDparams,
 		UserName: &userNameparams,
 	}
 
@@ -973,7 +974,7 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.GetUserProfileResponse{
-			UserProfile: mapUserProfile(resp.UserProfile),
+			UserProfile: mapUserProfileHelper(resp.UserProfile),
 			Message:     resp.Message,
 		},
 		Error: nil,
@@ -1036,7 +1037,8 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 
 // Social Features
 func (uc *UserController) FollowUserHandler(c *gin.Context) {
-	followUserID := c.Query("followUserID")
+	followUserID := c.Query("followeeID")
+	fmt.Println("followUserID ",followUserID)
 	if followUserID == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1284,6 +1286,62 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 			Message:       resp.Message,
 		},
 		Error: nil,
+	})
+}
+
+//
+
+func (uc *UserController) GetFollowFollowingCheckHandler(c *gin.Context) {
+	userID := c.Query("userID")
+	if userID == "" {
+
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_PARAM_EMPTY,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing userID query parameter",
+				Details:   "userID is required",
+			},
+		})
+		return
+
+	}
+
+	ownerUserID, _ := c.Get(middleware.EntityIDKey)
+
+	GetFollowFollowingCheckRequest := &AuthUserAdminService.GetFollowFollowingCheckRequest{
+		TargetUserID: userID,
+		OwnerUserID:  ownerUserID.(string),
+	}
+
+	resp, err := uc.userClient.GetFollowFollowingCheck(c.Request.Context(), GetFollowFollowingCheckRequest)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
+		httpCode := mapGrpcCodeToHttp(grpcCode)
+
+		c.JSON(httpCode, model.GenericResponse{
+			Success: false,
+			Status:  httpCode,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: errorType,
+				Code:      httpCode,
+				Message:   "Get follow check failed",
+				Details:   details,
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+		Error:   nil,
 	})
 }
 
@@ -1710,7 +1768,7 @@ func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.GetAllUsersResponse{
-			Users:         mapUserProfiles(resp.Users),
+			Users:         mapUserProfilesforAdmins(resp.Users),
 			TotalCount:    resp.TotalCount,
 			NextPageToken: resp.NextPageToken,
 			Message:       resp.Message,
@@ -2097,7 +2155,7 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 }
 
 // Mapping functions remain unchanged
-func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
+func mapUserProfileHelper(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
 	if protoProfile == nil {
 		return model.UserProfile{}
 	}
@@ -2130,6 +2188,44 @@ func mapUserProfile(protoProfile *AuthUserAdminService.UserProfile) model.UserPr
 		CreatedAt:         protoProfile.CreatedAt,
 	}
 }
+
+func mapUserProfileForAdminsHelper(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
+	if protoProfile == nil {
+		return model.UserProfile{}
+	}
+
+	var socials model.Socials
+	if protoProfile.Socials != nil {
+		socials = model.Socials{
+			Github:   protoProfile.Socials.Github,
+			Twitter:  protoProfile.Socials.Twitter,
+			Linkedin: protoProfile.Socials.Linkedin,
+		}
+	}
+
+	return model.UserProfile{
+		UserID:             protoProfile.UserID,
+		UserName:           protoProfile.UserName,
+		FirstName:          protoProfile.FirstName,
+		LastName:           protoProfile.LastName,
+		AvatarURL:          protoProfile.AvatarData,
+		IsVerified:         protoProfile.IsVerified,
+		Email:              protoProfile.Email,
+		Bio:                protoProfile.Bio,
+		Role:               protoProfile.Role,
+		Country:            protoProfile.Country,
+		PrimaryLanguageID:  protoProfile.PrimaryLanguageID,
+		MuteNotifications:  protoProfile.MuteNotifications,
+		Socials:            socials,
+		CreatedAt:          protoProfile.CreatedAt,
+		AuthType:           protoProfile.AuthType,
+		IsBanned:           protoProfile.IsBanned,
+		BanReason:          protoProfile.BanReason,
+		BanExpiration:      protoProfile.BanExpiration,
+		TwoFactorEnabled:   protoProfile.TwoFactorEnabled,
+	}
+}
+
 
 func (uc *UserController) UserAvailable(ctx *gin.Context) {
 	username := ctx.Query("username")
@@ -2181,7 +2277,14 @@ func (uc *UserController) UserAvailable(ctx *gin.Context) {
 func mapUserProfiles(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {
 	profiles := make([]model.UserProfile, len(protoProfiles))
 	for i, p := range protoProfiles {
-		profiles[i] = mapUserProfile(p)
+		profiles[i] = mapUserProfileHelper(p)
+	}
+	return profiles
+}
+func mapUserProfilesforAdmins(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {
+	profiles := make([]model.UserProfile, len(protoProfiles))
+	for i, p := range protoProfiles {
+		profiles[i] = mapUserProfileForAdminsHelper(p)
 	}
 	return profiles
 }

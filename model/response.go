@@ -16,11 +16,16 @@ type UserProfile struct {
 	Bio                     string                  `json:"bio"`
 	Country                 string                  `json:"country"`
 	IsBanned                bool                    `json:"isBanned"`
+	AuthType                string                  `json:"authType"`
 	IsVerified              bool                    `json:"isVerified"`
 	PrimaryLanguageID       string                  `json:"primaryLanguageID"`
 	MuteNotifications       bool                    `json:"muteNotifications"`
 	Socials                 Socials                 `json:"socials"`
 	CreatedAt               int64                   `json:"createdAt"`
+	BanID                   string                  `gorm:"type:varchar(255)" json:"banID"`
+	BanReason               string                  `gorm:"type:varchar(255)" json:"banReason"`
+	BanExpiration           int64                   `json:"banExpiration"`
+	TwoFactorEnabled        bool                    `gorm:"default:false;not null" json:"twoFactorEnabled"`
 	ProblemSolvedStatsCount ProblemSolvedStatsCount `json:"problemSolvedStatsCount"`
 }
 
