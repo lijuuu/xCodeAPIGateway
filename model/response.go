@@ -220,6 +220,7 @@ type GetAllUsersResponse struct {
 	Users         []UserProfile `json:"users"`
 	TotalCount    int32         `json:"totalCount"`
 	NextPageToken string        `json:"nextPageToken"`
+	PrevPageToken string        `json:"prevPageToken"`
 	Message       string        `json:"message"`
 }
 

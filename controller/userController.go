@@ -12,8 +12,11 @@ import (
 	"xcode/model"
 	"xcode/utils"
 
+	cache "xcode/ristretto"
+
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc/codes"
@@ -377,40 +380,44 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 }
 
 func (uc *UserController) LogoutUserHandler(c *gin.Context) {
-	userID, _ := c.Get(middleware.EntityIDKey)
+	// userID, _ := c.Get(middleware.EntityIDKey)
 	jwtToken, _ := c.Get(middleware.JWTToken)
 
-	middleware.RevokeToken(jwtToken.(string))
-
-	logoutRequest := &AuthUserAdminService.LogoutRequest{
-		UserID: userID.(string),
-	}
-
-	resp, err := uc.userClient.LogoutUser(c.Request.Context(), logoutRequest)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
-		httpCode := mapGrpcCodeToHttp(grpcCode)
-
-		c.JSON(httpCode, model.GenericResponse{
+	// Retrieve the cache from the context
+	cacheValue, exists := c.Get("cacheInstance")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, model.GenericResponse{
 			Success: false,
-			Status:  httpCode,
+			Status:  http.StatusInternalServerError,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				ErrorType: errorType,
-				Code:      httpCode,
-				Message:   "Logout failed",
-				Details:   details,
+				Code:    http.StatusInternalServerError,
+				Message: "Cache not initialized",
+			},
+		})
+		return
+	}
+	cacheInstance, ok := cacheValue.(*cache.Cache)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				Code:    http.StatusInternalServerError,
+				Message: "Invalid cache type",
 			},
 		})
 		return
 	}
 
+	cacheInstance.InvalidateToken(jwtToken.(string))
+
 	c.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.LogoutResponse{
-			Message: resp.Message,
+			Message: "Logout Successful",
 		},
 		Error: nil,
 	})
@@ -1038,7 +1045,7 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 // Social Features
 func (uc *UserController) FollowUserHandler(c *gin.Context) {
 	followUserID := c.Query("followeeID")
-	fmt.Println("followUserID ",followUserID)
+	fmt.Println("followUserID ", followUserID)
 	if followUserID == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1744,6 +1751,58 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 	getAllUsersRequest := &AuthUserAdminService.GetAllUsersRequest{}
 
+	//bind and parse params
+	var Params struct {
+		NextPageToken  string `form:"nextPageToken"`
+		PrevPageToken  string `form:"prevPageToken"`
+		Limit          int32  `form:"limit"`
+		RoleFilter     string `form:"roleFilter"`
+		StatusFilter   string `form:"statusFilter"`
+		NameFilter     string `form:"nameFilter"`
+		EmailFilter    string `form:"emailFilter"`
+		FromDateFilter int64  `form:"fromDateFilter"`
+		ToDateFilter   int64  `form:"toDateFilter"`
+	}
+
+	// fmt.Println("Raw Query:", c.Request.URL.RawQuery)
+
+	if err := c.ShouldBindQuery(&Params); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid query params"})
+		return
+	}
+
+	//conditionally assign fields
+	if Params.NextPageToken != "" {
+		getAllUsersRequest.NextPageToken = Params.NextPageToken
+	}
+	if Params.PrevPageToken != "" {
+		getAllUsersRequest.PrevPageToken = Params.PrevPageToken
+	}
+	if Params.Limit != 0 {
+		getAllUsersRequest.Limit = Params.Limit
+	}
+	if Params.RoleFilter != "" {
+		getAllUsersRequest.RoleFilter = Params.RoleFilter
+	}
+	if Params.StatusFilter != "" {
+		getAllUsersRequest.StatusFilter = Params.StatusFilter
+	}
+	if Params.NameFilter != "" {
+		getAllUsersRequest.NameFilter = Params.NameFilter
+	}
+	if Params.EmailFilter != "" {
+		getAllUsersRequest.EmailFilter = Params.EmailFilter
+	}
+	if Params.FromDateFilter != 0 {
+		getAllUsersRequest.FromDateFilter = Params.FromDateFilter
+	}
+	if Params.ToDateFilter != 0 {
+		getAllUsersRequest.ToDateFilter = Params.ToDateFilter
+	}
+
+	// fmt.Println("getAllUsersRequest ", getAllUsersRequest)
+	// fmt.Println("Params ", Params)
+
 	resp, err := uc.userClient.GetAllUsers(c.Request.Context(), getAllUsersRequest)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
@@ -1770,6 +1829,7 @@ func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 		Payload: model.GetAllUsersResponse{
 			Users:         mapUserProfilesforAdmins(resp.Users),
 			TotalCount:    resp.TotalCount,
+			PrevPageToken: resp.PrevPageToken,
 			NextPageToken: resp.NextPageToken,
 			Message:       resp.Message,
 		},
@@ -2204,28 +2264,27 @@ func mapUserProfileForAdminsHelper(protoProfile *AuthUserAdminService.UserProfil
 	}
 
 	return model.UserProfile{
-		UserID:             protoProfile.UserID,
-		UserName:           protoProfile.UserName,
-		FirstName:          protoProfile.FirstName,
-		LastName:           protoProfile.LastName,
-		AvatarURL:          protoProfile.AvatarData,
-		IsVerified:         protoProfile.IsVerified,
-		Email:              protoProfile.Email,
-		Bio:                protoProfile.Bio,
-		Role:               protoProfile.Role,
-		Country:            protoProfile.Country,
-		PrimaryLanguageID:  protoProfile.PrimaryLanguageID,
-		MuteNotifications:  protoProfile.MuteNotifications,
-		Socials:            socials,
-		CreatedAt:          protoProfile.CreatedAt,
-		AuthType:           protoProfile.AuthType,
-		IsBanned:           protoProfile.IsBanned,
-		BanReason:          protoProfile.BanReason,
-		BanExpiration:      protoProfile.BanExpiration,
-		TwoFactorEnabled:   protoProfile.TwoFactorEnabled,
+		UserID:            protoProfile.UserID,
+		UserName:          protoProfile.UserName,
+		FirstName:         protoProfile.FirstName,
+		LastName:          protoProfile.LastName,
+		AvatarURL:         protoProfile.AvatarData,
+		IsVerified:        protoProfile.IsVerified,
+		Email:             protoProfile.Email,
+		Bio:               protoProfile.Bio,
+		Role:              protoProfile.Role,
+		Country:           protoProfile.Country,
+		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
+		MuteNotifications: protoProfile.MuteNotifications,
+		Socials:           socials,
+		CreatedAt:         protoProfile.CreatedAt,
+		AuthType:          protoProfile.AuthType,
+		IsBanned:          protoProfile.IsBanned,
+		BanReason:         protoProfile.BanReason,
+		BanExpiration:     protoProfile.BanExpiration,
+		TwoFactorEnabled:  protoProfile.TwoFactorEnabled,
 	}
 }
-
 
 func (uc *UserController) UserAvailable(ctx *gin.Context) {
 	username := ctx.Query("username")

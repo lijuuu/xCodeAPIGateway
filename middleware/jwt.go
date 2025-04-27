@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"xcode/model"
+	cache "xcode/ristretto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -25,9 +26,9 @@ type Claims struct {
 
 // Context keys
 const (
-	EntityIDKey = "entityID" 
-	RoleKey     = "role"   
-	JWTToken    = "jwtToken" 
+	EntityIDKey = "entityID"
+	RoleKey     = "role"
+	JWTToken    = "jwtToken"
 )
 
 // Role constants
@@ -36,23 +37,43 @@ const (
 	RoleUser  = "USER"
 )
 
-var RevokedToken = make(map[string]struct{})
-
-func CheckRevokedToken(token string) bool {
-	_, ok := RevokedToken[token]
-	return ok
-}
-
-func RevokeToken(token string) {
-	fmt.Println("RevokeToken ", token)
-	RevokedToken[token] = struct{}{}
-}
-
 // JWTAuthMiddleware handles JWT authentication
 func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	fmt.Println("JWTAuthMiddleware ", jwtSecret)
-	logger := logrus.New() 
+	logger := logrus.New()
 	return func(c *gin.Context) {
+		// Retrieve the cache from the context
+		cacheValue, exists := c.Get("cacheInstance")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusInternalServerError,
+					Message: "cacheInstance not initialized",
+					Details: "Cache instance missing in context",
+				},
+			})
+			c.Abort()
+			return
+		}
+		cacheInstance, ok := cacheValue.(*cache.Cache)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					Code:    http.StatusInternalServerError,
+					Message: "Invalid cache type",
+					Details: "Cache instance in context is not of expected type",
+				},
+			})
+			c.Abort()
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, model.GenericResponse{
@@ -61,7 +82,8 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 				Payload: nil,
 				Error: &model.ErrorInfo{
 					Code:    http.StatusUnauthorized,
-					Message: "Authorization header is required",
+					Message: "Authorization header required",
+					Details: "Authorization header is missing in the request",
 				},
 			})
 			c.Abort()
@@ -77,23 +99,27 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 				Error: &model.ErrorInfo{
 					Code:    http.StatusUnauthorized,
 					Message: "Invalid token format",
+					Details: "Authorization header must be in the format 'Bearer <token>'",
 				},
 			})
 			c.Abort()
 			return
 		}
 
-		if CheckRevokedToken(tokenString) {
+		// Check if token is invalidated in the cache
+		if cacheInstance.IsTokenInvalid(tokenString) {
 			c.JSON(http.StatusUnauthorized, model.GenericResponse{
 				Success: false,
 				Status:  http.StatusUnauthorized,
 				Payload: nil,
 				Error: &model.ErrorInfo{
 					Code:    http.StatusUnauthorized,
-					Message: "Token is revoked",
+					Message: "Token has been revoked",
+					Details: "The provided token has been invalidated, please log in again",
 				},
 			})
 			c.Abort()
+			return
 		}
 
 		claims := &Claims{}
@@ -112,7 +138,7 @@ func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
 				Error: &model.ErrorInfo{
 					Code:    http.StatusUnauthorized,
 					Message: "Invalid or expired token",
-					Details: err.Error(),
+					Details: fmt.Sprintf("Token validation failed: %v", err),
 				},
 			})
 			c.Abort()
@@ -142,6 +168,7 @@ func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 				Error: &model.ErrorInfo{
 					Code:    http.StatusUnauthorized,
 					Message: "Role information not found",
+					Details: "Role not found in request context",
 				},
 			})
 			c.Abort()
@@ -157,8 +184,8 @@ func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 				Payload: nil,
 				Error: &model.ErrorInfo{
 					Code:    http.StatusInternalServerError,
-					Message: "Internal server error",
-					Details: "Invalid role type",
+					Message: "Invalid role type",
+					Details: fmt.Sprintf("Role type in context is invalid: %v", role),
 				},
 			})
 			c.Abort()
@@ -189,7 +216,7 @@ func RoleAuthMiddleware(allowedRoles ...string) gin.HandlerFunc {
 // UserBanCheckMiddleware checks if a user is banned
 func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminServiceClient) gin.HandlerFunc {
 	logger := logrus.New()
-	const timeout = 10 * time.Second 
+	const timeout = 10 * time.Second
 	return func(c *gin.Context) {
 		if userClient == nil {
 			logger.Errorf("User client is nil")
@@ -216,6 +243,7 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 				Error: &model.ErrorInfo{
 					Code:    http.StatusUnauthorized,
 					Message: "User ID not found in token",
+					Details: "User ID not found in request context",
 				},
 			})
 			c.Abort()
@@ -254,6 +282,7 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 				Error: &model.ErrorInfo{
 					Code:    http.StatusForbidden,
 					Message: "User is banned",
+					Details: "Access denied due to user ban",
 				},
 			})
 			c.Abort()

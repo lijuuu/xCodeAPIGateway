@@ -153,7 +153,7 @@ func SetUpProtectedUserRoutes(ApiV1 *gin.RouterGroup, UserController *controller
 	UsersPrivate := Users.Group("")
 	UsersPrivate.Use(
 		middleware.JWTAuthMiddleware(JWTSecret),
-		middleware.RoleAuthMiddleware(middleware.RoleUser,middleware.RoleAdmin),
+		middleware.RoleAuthMiddleware(middleware.RoleUser, middleware.RoleAdmin),
 		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
 	)
 	{
@@ -455,7 +455,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 	ProblemsPrivate := Problems.Group("")
 	ProblemsPrivate.Use(
 		middleware.JWTAuthMiddleware(JWTSecret),
-		middleware.RoleAuthMiddleware(middleware.RoleUser,middleware.RoleAdmin),
+		middleware.RoleAuthMiddleware(middleware.RoleUser, middleware.RoleAdmin),
 		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
 	)
 	{
@@ -465,7 +465,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"title": "New Problem", "description": "Solve this...", "tags": ["array", "math"], "difficulty": "easy"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "slug": "new-problem", "message": "Problem created"}, "error": null}
-		ProblemsPrivate.POST("/", ProblemController.CreateProblemHandler)
+		ProblemsPublic.POST("/", ProblemController.CreateProblemHandler)
 
 		// detail: "Updates an existing problem"
 		// type: PUT
@@ -473,7 +473,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "title": "Updated Problem", "description": "Updated description...", "tags": ["array"], "difficulty": "medium"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "message": "Problem updated"}, "error": null}
-		ProblemsPrivate.PUT("/", ProblemController.UpdateProblemHandler)
+		ProblemsPublic.PUT("/", ProblemController.UpdateProblemHandler)
 
 		// detail: "Deletes a problem"
 		// type: DELETE
@@ -481,7 +481,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: QueryParams
 		// request structure: {"problem_id": "uuid"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "message": "Problem deleted"}, "error": null}
-		ProblemsPrivate.DELETE("/", ProblemController.DeleteProblemHandler)
+		ProblemsPublic.DELETE("/", ProblemController.DeleteProblemHandler)
 
 		// detail: "Gets a problem by ID"
 		// type: GET
@@ -489,7 +489,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: QueryParams
 		// request structure: {"problem_id": "uuid"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem": {"problem_id": "uuid", "title": "Two Sum", "slug": "two-sum", "difficulty": "easy", "description": "Given an array...", "tags": ["array", "math"], "supported_languages": ["go", "python"], "test_cases": {"run": [{"input": "1 2", "expected": "3"}], "submit": [{"input": "1 2", "expected": "3"}]}, "created_at": "2025-04-22T12:00:00Z"}, "message": "Problem retrieved"}, "error": null}
-		ProblemsPrivate.GET("/", ProblemController.GetProblemHandler)
+		ProblemsPublic.GET("/", ProblemController.GetProblemHandler)
 
 		// detail: "Adds test cases to a problem"
 		// type: POST
@@ -497,7 +497,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "testcases": {"run": [{"input": "1 2", "expected": "3"}], "submit": [{"input": "4 5", "expected": "9"}]}}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Test cases added", "added_count": 2, "problem_id": "uuid"}, "error": null}
-		ProblemsPrivate.POST("/testcases", ProblemController.AddTestCasesHandler)
+		ProblemsPublic.POST("/testcases", ProblemController.AddTestCasesHandler)
 
 		// detail: "Deletes a single test case from a problem"
 		// type: DELETE
@@ -505,7 +505,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "testcase_id": "testcase_uuid", "is_run_testcase": true}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Test case deleted", "problem_id": "uuid", "testcase_id": "testcase_uuid"}, "error": null}
-		ProblemsPrivate.DELETE("/testcases/single", ProblemController.DeleteTestCaseHandler)
+		ProblemsPublic.DELETE("/testcases/single", ProblemController.DeleteTestCaseHandler)
 
 		// detail: "Adds language support to a problem"
 		// type: POST
@@ -513,7 +513,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "language": "go", "validation_code": {"placeholder": "func main() {}", "code": "func validate(input string) string {}", "template": "package main\nimport \"fmt\"\nfunc main() {}"}}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Language support added", "problem_id": "uuid", "language": "go"}, "error": null}
-		ProblemsPrivate.POST("/language", ProblemController.AddLanguageSupportHandler)
+		ProblemsPublic.POST("/language", ProblemController.AddLanguageSupportHandler)
 
 		// detail: "Updates language support for a problem"
 		// type: PUT
@@ -521,7 +521,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "language": "go", "validation_code": {"placeholder": "func main() {}", "code": "func validate(input string) string {}", "template": "package main\nimport \"fmt\"\nfunc main() {}"}}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Language support updated", "problem_id": "uuid", "language": "go"}, "error": null}
-		ProblemsPrivate.PUT("/language", ProblemController.UpdateLanguageSupportHandler)
+		ProblemsPublic.PUT("/language", ProblemController.UpdateLanguageSupportHandler)
 
 		// detail: "Removes language support from a problem"
 		// type: DELETE
@@ -529,7 +529,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "language": "go"}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Language support removed", "problem_id": "uuid", "language": "go"}, "error": null}
-		ProblemsPrivate.DELETE("/language", ProblemController.RemoveLanguageSupportHandler)
+		ProblemsPublic.DELETE("/language", ProblemController.RemoveLanguageSupportHandler)
 
 		// detail: "Validates a problem by ID"
 		// type: GET
@@ -537,7 +537,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: QueryParams
 		// request structure: {"problem_id": "uuid"}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Validation successful", "problem_id": "uuid", "validation_status": "valid"}, "error": null}
-		ProblemsPrivate.GET("/validate", ProblemController.FullValidationByProblemIDHandler)
+		ProblemsPublic.GET("/validate", ProblemController.FullValidationByProblemIDHandler)
 
 		// detail: "Gets supported languages for a problem"
 		// type: GET
@@ -600,7 +600,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 	Challenges := ApiV1.Group("")
 	Challenges.Use(
 		middleware.JWTAuthMiddleware(JWTSecret),
-		middleware.RoleAuthMiddleware(middleware.RoleUser,middleware.RoleAdmin),
+		middleware.RoleAuthMiddleware(middleware.RoleUser, middleware.RoleAdmin),
 		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
 	)
 	{
