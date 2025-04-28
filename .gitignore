@@ -1,2 +1,4 @@
 .env
 tmp/
+gin.log
+app.log

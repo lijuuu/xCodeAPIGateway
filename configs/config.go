@@ -12,6 +12,9 @@ type Config struct {
 	// Environment
 	Environment  string
 	JWTSecretKey string
+	BetterStackSourceToken string
+	BetterStackUploadURL string
+	
 	// Microservices
 	APIGATEWAYPORT     string
 	UserGRPCPort       string
@@ -44,6 +47,8 @@ func LoadConfig() Config {
 		GoogleClientSecret: getEnv("GOOGLECLIENTSECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLEREDIRECTURL", ""),
 
+		BetterStackSourceToken:getEnv("BETTERSTACKSOURCETOKEN", ""),
+		BetterStackUploadURL:getEnv("BETTERSTACKUPLOADURL",""),
 		FrontendURL: getEnv("FRONTENDURL", "http://localhost:8080"),
 	}
 }
