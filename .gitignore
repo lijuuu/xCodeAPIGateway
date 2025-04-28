@@ -2,3 +2,5 @@
 tmp/
 gin.log
 app.log
+
+*.log
