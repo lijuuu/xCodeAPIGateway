@@ -77,5 +77,3 @@ func (s *CompilerController) CompileCodeHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
-
-

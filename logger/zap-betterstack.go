@@ -10,18 +10,20 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-// Custom log level for NOTICE
-const NoticeLevel zapcore.Level = 2
+// Custom log level for NOTICE (below DebugLevel, non-error informational logs)
+const NoticeLevel zapcore.Level = -2
 
 // logEntry represents a single log entry for Better Stack
 type logEntry struct {
 	Timestamp  string         `json:"timestamp"`
 	Level      string         `json:"level"`
 	Message    string         `json:"message"`
+	TraceID    string         `json:"traceID"`
 	Attributes map[string]any `json:"attributes"`
 }
 
@@ -43,12 +45,16 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		// Combine file and stdout for development
 		fileWriter = io.MultiWriter(fileWriter, os.Stdout)
 	}
-	
 
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
+
+		// Generate TraceID and set in header and context
+		traceID := uuid.New().String()
+		c.Request.Header.Set("X-Trace-ID", traceID)
+		// c.Set("TraceID", traceID)
 
 		// Process request
 		c.Next()
@@ -57,7 +63,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		status := c.Writer.Status()
 		var level zapcore.Level
 		var levelStr string
-		
+
 		switch {
 		case status >= 500:
 			// server errors
@@ -81,12 +87,20 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 			levelStr = "DEBUG"
 		}
 
+		if c.Request.Method == "OPTIONS" {
+			return
+		}
+
 		// Create log entry
 		latency := time.Since(start)
+		bodyBytes, _ := io.ReadAll(c.Request.Body)
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 		entry := logEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     levelStr,
 			Message:   "HTTP request",
+			TraceID:   traceID,
 			Attributes: map[string]any{
 				"method":     c.Request.Method,
 				"path":       path,
@@ -95,6 +109,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 				"ip":         c.ClientIP(),
 				"user_agent": c.Request.UserAgent(),
 				"latency_ms": latency.Milliseconds(),
+				"body":       string(bodyBytes),
 			},
 		}
 
@@ -119,7 +134,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		}
 
 		// Production: Send log to Better Stack
-		req, err := http.NewRequest( "POST", BetterStackUploadURL, bytes.NewReader(body))
+		req, err := http.NewRequest("POST", BetterStackUploadURL, bytes.NewReader(body))
 		if err != nil {
 			logger.Error("Failed to create HTTP request", zap.Error(err))
 			return

@@ -113,6 +113,7 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 		Email:           req.Email,
 		Password:        req.Password,
 		ConfirmPassword: req.ConfirmPassword,
+		TraceID:         GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.RegisterUser(c.Request.Context(), registerUserRequest)
@@ -171,6 +172,7 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 		Email:         req.Email,
 		Password:      req.Password,
 		TwoFactorCode: req.Code,
+		TraceID:       GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.LoginUser(c.Request.Context(), loginUserRequest)
@@ -289,6 +291,7 @@ func (uc *UserController) LoginAdminHandler(c *gin.Context) {
 	loginAdminRequest := &AuthUserAdminService.LoginAdminRequest{
 		Email:    req.Email,
 		Password: req.Password,
+		TraceID:  GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.LoginAdmin(c.Request.Context(), loginAdminRequest)
@@ -344,6 +347,7 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 
 	tokenRefreshRequest := &AuthUserAdminService.TokenRefreshRequest{
 		RefreshToken: req.RefreshToken,
+		TraceID:      GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.TokenRefresh(c.Request.Context(), tokenRefreshRequest)
@@ -441,7 +445,8 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 	}
 
 	resendEmailVerificationRequest := &AuthUserAdminService.ResendEmailVerificationRequest{
-		Email: email,
+		Email:   email,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.ResendEmailVerification(c.Request.Context(), resendEmailVerificationRequest)
@@ -494,8 +499,9 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 	}
 
 	verifyUserRequest := &AuthUserAdminService.VerifyUserRequest{
-		Email: email,
-		Token: token,
+		Email:   email,
+		Token:   token,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.VerifyUser(c.Request.Context(), verifyUserRequest)
@@ -560,7 +566,8 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 	}
 
 	forgotPasswordRequest := &AuthUserAdminService.ForgotPasswordRequest{
-		Email: req.Email,
+		Email:   req.Email,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.ForgotPassword(c.Request.Context(), forgotPasswordRequest)
@@ -616,6 +623,7 @@ func (uc *UserController) FinishForgotPasswordHandler(c *gin.Context) {
 		Token:           req.Token,
 		NewPassword:     req.NewPassword,
 		ConfirmPassword: req.ConfirmPassword,
+		TraceID:         GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.FinishForgotPassword(c.Request.Context(), finishForgotPasswordRequest)
@@ -687,6 +695,7 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 		OldPassword:     req.OldPassword,
 		NewPassword:     req.NewPassword,
 		ConfirmPassword: req.ConfirmPassword,
+		TraceID:         GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.ChangePassword(c.Request.Context(), changePasswordRequest)
@@ -767,6 +776,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 			Twitter:  req.Socials.Twitter,
 			Linkedin: req.Socials.Linkedin,
 		},
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	fmt.Println("before udpate ", updateProfileRequest)
@@ -842,6 +852,7 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 	updateProfileImageRequest := &AuthUserAdminService.UpdateProfileImageRequest{
 		UserID:    userID.(string),
 		AvatarURL: avatarUrl,
+		TraceID:   GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UpdateProfileImage(c.Request.Context(), updateProfileImageRequest)
@@ -896,7 +907,8 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 	}
 
 	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
-		UserID: userID.(string),
+		UserID:  userID.(string),
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
@@ -955,6 +967,7 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
 		UserID:   userIDparams,
 		UserName: &userNameparams,
+		TraceID:  GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
@@ -1006,7 +1019,8 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 	}
 
 	checkBanStatusRequest := &AuthUserAdminService.CheckBanStatusRequest{
-		UserID: req.UserID,
+		UserID:  req.UserID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.CheckBanStatus(c.Request.Context(), checkBanStatusRequest)
@@ -1080,6 +1094,7 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 	followUserRequest := &AuthUserAdminService.FollowUserRequest{
 		FolloweeID: followUserID,
 		FollowerID: userID.(string),
+		TraceID:    GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.FollowUser(c.Request.Context(), followUserRequest)
@@ -1148,6 +1163,7 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 	unfollowUserRequest := &AuthUserAdminService.UnfollowUserRequest{
 		FolloweeID: unfollowUserID,
 		FollowerID: userID.(string),
+		TraceID:    GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UnfollowUser(c.Request.Context(), unfollowUserRequest)
@@ -1202,7 +1218,8 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 	}
 
 	getFollowingRequest := &AuthUserAdminService.GetFollowingRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetFollowing(c.Request.Context(), getFollowingRequest)
@@ -1260,7 +1277,8 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 	}
 
 	getFollowersRequest := &AuthUserAdminService.GetFollowersRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetFollowers(c.Request.Context(), getFollowersRequest)
@@ -1322,6 +1340,7 @@ func (uc *UserController) GetFollowFollowingCheckHandler(c *gin.Context) {
 	GetFollowFollowingCheckRequest := &AuthUserAdminService.GetFollowFollowingCheckRequest{
 		TargetUserID: userID,
 		OwnerUserID:  ownerUserID.(string),
+		TraceID:      GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetFollowFollowingCheck(c.Request.Context(), GetFollowFollowingCheckRequest)
@@ -1378,6 +1397,7 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 		AuthType:        req.AuthType,
 		Password:        req.Password,
 		ConfirmPassword: req.ConfirmPassword,
+		TraceID:         GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.CreateUserAdmin(c.Request.Context(), createUserAdminRequest)
@@ -1459,6 +1479,7 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 			Twitter:  req.Socials.Twitter,
 			Linkedin: req.Socials.Linkedin,
 		},
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UpdateUserAdmin(c.Request.Context(), updateUserAdminRequest)
@@ -1513,6 +1534,7 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 		BanType:   req.BanType,
 		BanReason: req.BanReason,
 		BanExpiry: req.BanExpiry,
+		TraceID:   GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.BanUser(c.Request.Context(), banUserRequest)
@@ -1562,7 +1584,8 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 	}
 
 	unbanUserRequest := &AuthUserAdminService.UnbanUserRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UnbanUser(c.Request.Context(), unbanUserRequest)
@@ -1613,7 +1636,8 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 	}
 
 	verifyAdminUserRequest := &AuthUserAdminService.VerifyAdminUserRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.VerifyAdminUser(c.Request.Context(), verifyAdminUserRequest)
@@ -1664,7 +1688,8 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 	}
 
 	unverifyUserRequest := &AuthUserAdminService.UnverifyUserAdminRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UnverifyUser(c.Request.Context(), unverifyUserRequest)
@@ -1715,7 +1740,8 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 	}
 
 	softDeleteUserAdminRequest := &AuthUserAdminService.SoftDeleteUserAdminRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.SoftDeleteUserAdmin(c.Request.Context(), softDeleteUserAdminRequest)
@@ -1749,7 +1775,9 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
-	getAllUsersRequest := &AuthUserAdminService.GetAllUsersRequest{}
+	getAllUsersRequest := &AuthUserAdminService.GetAllUsersRequest{
+		TraceID: GetTraceID(&c.Request.Header),
+	}
 
 	//bind and parse params
 	var Params struct {
@@ -1875,7 +1903,8 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 	}
 
 	banHistoryRequest := &AuthUserAdminService.BanHistoryRequest{
-		UserID: userID,
+		UserID:  userID,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.BanHistory(c.Request.Context(), banHistoryRequest)
@@ -1940,6 +1969,7 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 		Query:     query,
 		PageToken: pageToken,
 		Limit:     limit,
+		TraceID:   GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.SearchUsers(c.Request.Context(), searchUsersRequest)
@@ -1997,6 +2027,7 @@ func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 	setUpTwoFactorAuthRequest := &AuthUserAdminService.SetUpTwoFactorAuthRequest{
 		UserID:   req.UserID,
 		Password: req.Password,
+		TraceID:  GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.SetUpTwoFactorAuth(c.Request.Context(), setUpTwoFactorAuthRequest)
@@ -2049,7 +2080,8 @@ func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 	}
 
 	getTwoFactorAuthStatusRequest := &AuthUserAdminService.GetTwoFactorAuthStatusRequest{
-		Email: email,
+		Email:   email,
+		TraceID: GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetTwoFactorAuthStatus(c.Request.Context(), getTwoFactorAuthStatusRequest)
@@ -2125,6 +2157,7 @@ func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
 	verifyRequest := &AuthUserAdminService.VerifyTwoFactorAuthRequest{
 		UserID:        userID.(string),
 		TwoFactorCode: req.TwoFactorCode,
+		TraceID:       GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.VerifyTwoFactorAuth(c.Request.Context(), verifyRequest)
@@ -2182,6 +2215,7 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 		UserID:   req.UserID,
 		Password: req.Password,
 		Otp:      req.Otp,
+		TraceID:  GetTraceID(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.DisableTwoFactorAuth(c.Request.Context(), deleteTwoFactorAuthRequest)
@@ -2365,4 +2399,10 @@ func mapBanHistories(protoBans []*AuthUserAdminService.BanHistory) []model.BanHi
 		bans[i] = mapBanHistory(b)
 	}
 	return bans
+}
+
+func GetTraceID(header *http.Header) string {
+	TraceID := header.Get("X-Trace-ID")
+	// fmt.Println(" TraceID ",TraceID)
+	return TraceID
 }

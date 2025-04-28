@@ -30,6 +30,8 @@ func NewProblemController(problemClient pb.ProblemsServiceClient, userClient Aut
 
 func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 	var req pb.CreateProblemRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -39,6 +41,7 @@ func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 		})
 		return
 	}
+
 	resp, err := c.problemClient.CreateProblem(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
@@ -63,6 +66,7 @@ func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 		})
 		return
 	}
+
 	ctx.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
@@ -73,6 +77,8 @@ func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 
 func (c *ProblemController) UpdateProblemHandler(ctx *gin.Context) {
 	var req pb.UpdateProblemRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -125,7 +131,7 @@ func (c *ProblemController) DeleteProblemHandler(ctx *gin.Context) {
 		})
 		return
 	}
-	resp, err := c.problemClient.DeleteProblem(ctx.Request.Context(), &pb.DeleteProblemRequest{ProblemId: problemID})
+	resp, err := c.problemClient.DeleteProblem(ctx.Request.Context(), &pb.DeleteProblemRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -168,7 +174,7 @@ func (c *ProblemController) GetProblemHandler(ctx *gin.Context) {
 		})
 		return
 	}
-	resp, err := c.problemClient.GetProblem(ctx.Request.Context(), &pb.GetProblemRequest{ProblemId: problemID})
+	resp, err := c.problemClient.GetProblem(ctx.Request.Context(), &pb.GetProblemRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -207,6 +213,7 @@ func (c *ProblemController) ListProblemsHandler(ctx *gin.Context) {
 	req.Tags = ctx.QueryArray("tags")
 	req.Difficulty = ctx.Query("difficulty")
 	req.SearchQuery = ctx.Query("search_query")
+	req.TraceID = GetTraceID(&ctx.Request.Header)
 	resp, err := c.problemClient.ListProblems(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
@@ -233,6 +240,8 @@ func (c *ProblemController) ListProblemsHandler(ctx *gin.Context) {
 
 func (c *ProblemController) AddTestCasesHandler(ctx *gin.Context) {
 	var req pb.AddTestCasesRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -276,6 +285,8 @@ func (c *ProblemController) AddTestCasesHandler(ctx *gin.Context) {
 
 func (c *ProblemController) DeleteTestCaseHandler(ctx *gin.Context) {
 	var req pb.DeleteTestCaseRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -328,6 +339,8 @@ func (c *ProblemController) DeleteTestCaseHandler(ctx *gin.Context) {
 
 func (c *ProblemController) AddLanguageSupportHandler(ctx *gin.Context) {
 	var req pb.AddLanguageSupportRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -371,6 +384,8 @@ func (c *ProblemController) AddLanguageSupportHandler(ctx *gin.Context) {
 
 func (c *ProblemController) UpdateLanguageSupportHandler(ctx *gin.Context) {
 	var req pb.UpdateLanguageSupportRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -414,6 +429,8 @@ func (c *ProblemController) UpdateLanguageSupportHandler(ctx *gin.Context) {
 
 func (c *ProblemController) RemoveLanguageSupportHandler(ctx *gin.Context) {
 	var req pb.RemoveLanguageSupportRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -467,7 +484,7 @@ func (c *ProblemController) FullValidationByProblemIDHandler(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.problemClient.FullValidationByProblemID(ctx.Request.Context(), &pb.FullValidationByProblemIDRequest{ProblemId: problemID})
+	resp, err := c.problemClient.FullValidationByProblemID(ctx.Request.Context(), &pb.FullValidationByProblemIDRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
 	fmt.Println("API Controller Response:", resp, err) // Debug log
 
 	// Check if the response is nil
@@ -538,7 +555,7 @@ func (c *ProblemController) GetLanguageSupportsHandler(ctx *gin.Context) {
 		})
 		return
 	}
-	resp, err := c.problemClient.GetLanguageSupports(ctx.Request.Context(), &pb.GetLanguageSupportsRequest{ProblemId: problemID})
+	resp, err := c.problemClient.GetLanguageSupports(ctx.Request.Context(), &pb.GetLanguageSupportsRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -588,6 +605,7 @@ func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
 	}
 	req := &pb.GetProblemByIdSlugRequest{
 		ProblemId: problemID,
+		TraceID:   GetTraceID(&ctx.Request.Header),
 	}
 	if slug != "" {
 		req.Slug = &slug
@@ -622,6 +640,8 @@ func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
 
 func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 	var req pb.GetProblemMetadataListRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if page, err := strconv.Atoi(ctx.Query("page")); err == nil && page > 0 {
 		req.Page = int32(page)
 	}
@@ -657,6 +677,7 @@ func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 
 func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	var req pb.RunProblemRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		// fmt.Println("bind json failed ", req)
@@ -922,6 +943,7 @@ func (c *ProblemController) GetSubmissionHistoryOptionalProblemId(ctx *gin.Conte
 		ProblemId: &problemID,
 		Page:      int32(page),
 		Limit:     int32(limit),
+		TraceID:   GetTraceID(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetSubmissionsByOptionalProblemID(ctx.Request.Context(), &grpcReq)
@@ -1013,7 +1035,8 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 
 	// Prepare the gRPC request
 	grpcReq := &pb.GetProblemsDoneStatisticsRequest{
-		UserId: userID,
+		UserId:  userID,
+		TraceID: GetTraceID(&ctx.Request.Header),
 	}
 
 	// Call the gRPC service
@@ -1102,9 +1125,10 @@ func (c *ProblemController) GetMonthlyActivityHeatmapController(ctx *gin.Context
 	}
 
 	grpcReq := &pb.GetMonthlyActivityHeatmapRequest{
-		UserID: userID,
-		Month:  int32(month),
-		Year:   int32(year),
+		UserID:  userID,
+		Month:   int32(month),
+		Year:    int32(year),
+		TraceID: GetTraceID(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetMonthlyActivityHeatmap(ctx.Request.Context(), grpcReq)
@@ -1169,7 +1193,8 @@ func (c *ProblemController) GetTopKGlobalController(ctx *gin.Context) {
 	}
 
 	grpcReq := &pb.GetTopKGlobalRequest{
-		K: int32(k),
+		K:       int32(k),
+		TraceID: GetTraceID(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetTopKGlobal(ctx.Request.Context(), grpcReq)
@@ -1237,7 +1262,9 @@ func (c *ProblemController) GetTopKEntityController(ctx *gin.Context) {
 	}
 
 	grpcReq := &pb.GetTopKEntityRequest{
-		Entity: entity,
+		Entity:  entity,
+		TraceID: GetTraceID(&ctx.Request.Header),
+
 		// K:      int32(k),
 	}
 
@@ -1300,7 +1327,8 @@ func (c *ProblemController) GetUserRankController(ctx *gin.Context) {
 	}
 
 	grpcReq := &pb.GetUserRankRequest{
-		UserId: userID,
+		UserId:  userID,
+		TraceID: GetTraceID(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetUserRank(ctx.Request.Context(), grpcReq)
@@ -1360,7 +1388,8 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 	}
 
 	grpcReq := &pb.GetLeaderboardDataRequest{
-		UserId: userID,
+		UserId:  userID,
+		TraceID: GetTraceID(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetLeaderboardData(ctx.Request.Context(), grpcReq)
@@ -1486,9 +1515,9 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 	})
 }
 
-
 func (c *ProblemController) CreateChallenge(ctx *gin.Context) {
 	var req pb.CreateChallengeRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1523,6 +1552,8 @@ func (c *ProblemController) CreateChallenge(ctx *gin.Context) {
 
 func (c *ProblemController) GetChallengeDetails(ctx *gin.Context) {
 	var req pb.GetChallengeDetailsRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	req.Id = ctx.Query("challenge_id")
 	// req.UserId = ctx.Query("user_id")
 
@@ -1562,6 +1593,8 @@ func (c *ProblemController) GetChallengeDetails(ctx *gin.Context) {
 
 func (c *ProblemController) GetPublicChallenge(ctx *gin.Context) {
 	req := &pb.GetPublicChallengesRequest{}
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	req.UserId = ctx.Query("user_id")
 	req.Difficulty = ctx.Query("difficulty")
 	req.IsActive = ctx.DefaultQuery("is_active", "false") == "true"
@@ -1600,6 +1633,8 @@ func (c *ProblemController) GetPublicChallenge(ctx *gin.Context) {
 
 func (c *ProblemController) JoinChallenge(ctx *gin.Context) {
 	var req pb.JoinChallengeRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1635,6 +1670,8 @@ func (c *ProblemController) JoinChallenge(ctx *gin.Context) {
 
 func (c *ProblemController) StartChallenge(ctx *gin.Context) {
 	var req pb.StartChallengeRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1669,6 +1706,8 @@ func (c *ProblemController) StartChallenge(ctx *gin.Context) {
 
 func (c *ProblemController) EndChallenge(ctx *gin.Context) {
 	var req pb.EndChallengeRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	if err := ctx.ShouldBindJSON(&req); err != nil || req.ChallengeId == "" || req.UserId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1733,9 +1772,10 @@ func (c *ProblemController) EndChallenge(ctx *gin.Context) {
 	})
 }
 
-
 func (c *ProblemController) GetSubmissionStatus(ctx *gin.Context) {
 	var req pb.GetSubmissionStatusRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	req.SubmissionId = ctx.Query("submission_id")
 	if req.SubmissionId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1798,6 +1838,8 @@ func (c *ProblemController) GetSubmissionStatus(ctx *gin.Context) {
 
 func (c *ProblemController) GetChallengeSubmissions(ctx *gin.Context) {
 	var req pb.GetChallengeSubmissionsRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	req.ChallengeId = ctx.Query("challenge_id")
 	if req.ChallengeId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1860,6 +1902,8 @@ func (c *ProblemController) GetChallengeSubmissions(ctx *gin.Context) {
 
 func (c *ProblemController) GetUserStats(ctx *gin.Context) {
 	var req pb.GetUserStatsRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	req.UserId = ctx.Query("user_id")
 	if req.UserId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1922,6 +1966,8 @@ func (c *ProblemController) GetUserStats(ctx *gin.Context) {
 
 func (c *ProblemController) GetChallengeUserStats(ctx *gin.Context) {
 	var req pb.GetChallengeUserStatsRequest
+	req.TraceID = GetTraceID(&ctx.Request.Header)
+
 	req.ChallengeId = ctx.Query("challenge_id")
 	req.UserId = ctx.Query("user_id")
 	if req.ChallengeId == "" || req.UserId == "" {
@@ -1983,15 +2029,14 @@ func (c *ProblemController) GetChallengeUserStats(ctx *gin.Context) {
 	})
 }
 
-
 func (c *ProblemController) GetUserChallengeHistory(ctx *gin.Context) {
 	// Extract query parameters
 	pageStr := ctx.Query("page")
 	isPrivate := ctx.Query("is_private")
 	pageSizeStr := ctx.Query("page_size")
 
-	userIDIntr,_ := ctx.Get(middleware.EntityIDKey)
-	userID,_ := userIDIntr.(string)
+	userIDIntr, _ := ctx.Get(middleware.EntityIDKey)
+	userID, _ := userIDIntr.(string)
 
 	// Validate user_id
 	if userID == "" {
@@ -2018,18 +2063,19 @@ func (c *ProblemController) GetUserChallengeHistory(ctx *gin.Context) {
 	if err != nil || pageSize < 1 {
 		pageSize = 10 // Default to 10 items per page
 	}
-	 
+
 	private := false
-	if isPrivate == "true"{
+	if isPrivate == "true" {
 		private = true
 	}
 
 	// Prepare gRPC request
 	grpcReq := &pb.GetChallengeHistoryRequest{
-		UserId:   userID,
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+		UserId:    userID,
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
 		IsPrivate: &private,
+		TraceID:   GetTraceID(&ctx.Request.Header),
 	}
 
 	// Call gRPC service
@@ -2061,11 +2107,11 @@ func (c *ProblemController) GetUserChallengeHistory(ctx *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: map[string]interface{}{
-			"challenges":   resp.Challenges,
-			"total_count":  resp.TotalCount,
-			"page":         resp.Page,
-			"page_size":    resp.PageSize,
-			"message":      "",
+			"challenges":  resp.Challenges,
+			"total_count": resp.TotalCount,
+			"page":        resp.Page,
+			"page_size":   resp.PageSize,
+			"message":     "",
 		},
 		Error: nil,
 	})
