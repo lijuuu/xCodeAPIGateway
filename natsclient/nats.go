@@ -1,20 +1,23 @@
 package natsclient
 
 import (
-	"github.com/nats-io/nats.go"
+	"fmt"
 	"time"
+
+	"github.com/nats-io/nats.go"
 )
 
 type NatsClient struct {
 	Conn *nats.Conn
 }
 
-
 func NewNatsClient(natsURL string) (*NatsClient, error) {
 	nc, err := nats.Connect(natsURL)
+	fmt.Printf("Tried connecting with nats: %v output: %v\n", natsURL, err)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Nats connected")
 	return &NatsClient{Conn: nc}, nil
 }
 

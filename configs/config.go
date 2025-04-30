@@ -10,11 +10,11 @@ import (
 // Config holds application configuration
 type Config struct {
 	// Environment
-	Environment  string
-	JWTSecretKey string
+	Environment            string
+	JWTSecretKey           string
 	BetterStackSourceToken string
-	BetterStackUploadURL string
-	
+	BetterStackUploadURL   string
+
 	// Microservices
 	APIGATEWAYPORT     string
 	UserGRPCPort       string
@@ -26,13 +26,17 @@ type Config struct {
 	GoogleRedirectURL  string
 
 	FrontendURL string
+
+	UserGRPCURL     string
+	CompilerGRPCURL string
+	ProblemGRPCURL  string
 }
 
 // LoadConfig loads configuration from environment variables with defaults
 func LoadConfig() Config {
 	// Load .env file if present
 	if err := godotenv.Load(".env"); err != nil {
-		log.Println("No .env file found, using system environment variables or defaults ",err)
+		log.Println("No .env file found, using system environment variables or defaults ", err)
 	}
 
 	return Config{
@@ -47,9 +51,13 @@ func LoadConfig() Config {
 		GoogleClientSecret: getEnv("GOOGLECLIENTSECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLEREDIRECTURL", ""),
 
-		BetterStackSourceToken:getEnv("BETTERSTACKSOURCETOKEN", ""),
-		BetterStackUploadURL:getEnv("BETTERSTACKUPLOADURL",""),
-		FrontendURL: getEnv("FRONTENDURL", "http://localhost:8080"),
+		BetterStackSourceToken: getEnv("BETTERSTACKSOURCETOKEN", ""),
+		BetterStackUploadURL:   getEnv("BETTERSTACKUPLOADURL", ""),
+		FrontendURL:            getEnv("FRONTENDURL", "http://localhost:8080"),
+
+		UserGRPCURL:     getEnv("USERGRPCURL", "localhost:50051"),
+		CompilerGRPCURL: getEnv("COMPILERGRPCURL", "localhost:50053"),
+		ProblemGRPCURL:  getEnv("PROBLEMGRPCURL", "localhost:50055"),
 	}
 }
 
