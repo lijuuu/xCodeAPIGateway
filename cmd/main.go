@@ -64,6 +64,12 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "cache instance ok"})
 	})
 
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
+
 	// cors setup
 	r.Use(cors.New(cors.Config{
 		AllowAllOrigins:  true,
