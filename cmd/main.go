@@ -12,7 +12,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -37,15 +36,15 @@ func main() {
 	r.Use(logger.BetterStackLoggingMiddleware(cfg.BetterStackSourceToken, cfg.Environment, cfg.BetterStackUploadURL, log))
 
 	// rate limiting middleware
-	limiter := rate.NewLimiter(1, 10)
-	r.Use(func(c *gin.Context) {
-		if !limiter.Allow() {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
-			c.Abort()
-			return
-		}
-		c.Next()
-	})
+	// limiter := rate.NewLimiter(5, 15)
+	// r.Use(func(c *gin.Context) {
+	// 	if !limiter.Allow() {
+	// 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
+	// 		c.Abort()
+	// 		return
+	// 	}
+	// 	c.Next()
+	// })
 
 	// cache setup
 	cacheInstance, err := ristretto.NewCache()
