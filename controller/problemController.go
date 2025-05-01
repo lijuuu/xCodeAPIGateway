@@ -804,7 +804,7 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		case "EXECUTION_ERROR":
 			httpCode = http.StatusBadRequest
 		default:
-			httpCode = http.StatusBadGateway
+			httpCode = http.StatusBadRequest
 		}
 
 		overallPass := false

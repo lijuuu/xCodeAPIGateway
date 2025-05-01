@@ -1,12 +1,15 @@
 package clients
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"time"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/connectivity"
 	config "xcode/configs"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ClientConnections struct {
@@ -15,51 +18,60 @@ type ClientConnections struct {
 }
 
 func InitClients(config *config.Config) (*ClientConnections, error) {
-	// Ensure the UserGRPCURL includes full URL (e.g., "localhost:50051")
+
+		// Connect to Problem gRPC service
+		targetProblem := config.ProblemGRPCURL
+		log.Println("Target ProblemGRPC URL ", targetProblem)
+		connProblem, err := grpc.Dial(targetProblem, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			// connUser.Close() // Clean up previous connection
+			return nil, fmt.Errorf("failed to connect to Problem gRPC server: %v", err)
+		}
+	
+		// Check connection state
+		if !waitForConnection(connProblem, 5*time.Second) {
+			// connUser.Close()
+			connProblem.Close()
+			return nil, fmt.Errorf("Problem gRPC connection is not ready")
+		}
+		fmt.Println("Successfully connected to ProblemService at:", targetProblem)
+
+		
+	// Connect to User gRPC service
 	targetUser := config.UserGRPCURL
-	ConnUser, err := grpc.Dial(targetUser, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	log.Println("Target UserGRPC URL ", targetUser)
+	connUser, err := grpc.Dial(targetUser, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to User gRPC server: %v", err)
 	}
-	// Wait for the connection to be ready (timeout after 5 seconds)
-	if err := waitForConnection(ConnUser); err != nil {
-		return nil, fmt.Errorf("failed to connect to User service: %v", err)
+
+	// Check connection state
+	if !waitForConnection(connUser, 5*time.Second) {
+		connUser.Close()
+		return nil, fmt.Errorf("User gRPC connection is not ready")
 	}
 	fmt.Println("Successfully connected to UserService at:", targetUser)
 
-	targetProblem := config.ProblemGRPCURL
-	ConnProblem, err := grpc.Dial(targetProblem, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Problem gRPC server: %v", err)
-	}
-	// Wait for the connection to be ready (timeout after 5 seconds)
-	if err := waitForConnection(ConnProblem); err != nil {
-		return nil, fmt.Errorf("failed to connect to Problem service: %v", err)
-	}
-	fmt.Println("Successfully connected to ProblemService at:", targetProblem)
-
 	return &ClientConnections{
-		ConnUser:    ConnUser,
-		ConnProblem: ConnProblem,
+		ConnUser:    connUser,
+		ConnProblem: connProblem,
 	}, nil
 }
 
-// waitForConnection checks the state of the connection and waits until it's ready or times out.
-func waitForConnection(conn *grpc.ClientConn) error {
-	// Set a timeout for waiting for the connection to become ready
-	timeout := time.After(5 * time.Second)
+// waitForConnection checks if the gRPC connection reaches the READY state within the timeout
+func waitForConnection(conn *grpc.ClientConn, timeout time.Duration) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	for {
 		select {
-		case <-timeout:
-			return fmt.Errorf("timeout waiting for gRPC connection to become ready")
+		case <-ctx.Done():
+			return false
 		default:
-			// Check the state of the connection
-			state := conn.GetState()
-			if state == connectivity.Ready {
-				return nil // Connection is ready
+			if conn.GetState() == connectivity.Ready {
+				return true
 			}
-			// Wait a bit before checking again
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond) // Poll interval
 		}
 	}
 }
@@ -68,7 +80,6 @@ func (c *ClientConnections) Close() {
 	if c.ConnUser != nil {
 		c.ConnUser.Close()
 	}
-
 	if c.ConnProblem != nil {
 		c.ConnProblem.Close()
 	}
