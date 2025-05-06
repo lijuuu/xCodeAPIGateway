@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 	"xcode/customerrors"
 	"xcode/middleware"
@@ -1424,34 +1425,60 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 	}
 
 	// Collect unique user IDs
-	userIDs := map[string]bool{resp.UserId: true}
+	userIDs := make(map[string]struct{}, len(resp.TopKGlobal)+len(resp.TopKEntity)+1)
+	userIDs[resp.UserId] = struct{}{}
 	for _, user := range resp.TopKGlobal {
-		userIDs[user.UserId] = true
+		userIDs[user.UserId] = struct{}{}
 	}
 	for _, user := range resp.TopKEntity {
-		userIDs[user.UserId] = true
+		userIDs[user.UserId] = struct{}{}
 	}
 
-	// Fetch user profiles
+	// Concurrently fetch user profiles
+	type profileResult struct {
+		id      string
+		profile struct {
+			UserName  string
+			AvatarURL string
+		}
+		err error
+	}
+
+	results := make(chan profileResult, len(userIDs))
+	var wg sync.WaitGroup
+
+	for id := range userIDs {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			profileReq := &AuthUserAdminService.GetUserProfileRequest{UserID: id}
+			profile, err := c.userClient.GetUserProfile(ctx.Request.Context(), profileReq)
+			result := profileResult{id: id}
+			if err != nil {
+				log.Printf("Failed to fetch profile for user %s: %v", id, err)
+			} else {
+				result.profile = struct {
+					UserName  string
+					AvatarURL string
+				}{UserName: profile.UserProfile.UserName, AvatarURL: profile.UserProfile.AvatarData}
+			}
+			results <- result
+		}(id)
+	}
+
+	// Close results channel after all goroutines finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect profiles
 	userProfiles := make(map[string]struct {
 		UserName  string
 		AvatarURL string
-	})
-	for id := range userIDs {
-		profileReq := &AuthUserAdminService.GetUserProfileRequest{UserID: id}
-		profile, err := c.userClient.GetUserProfile(ctx.Request.Context(), profileReq)
-		if err != nil {
-			log.Printf("Failed to fetch profile for user %s: %v", id, err)
-			userProfiles[id] = struct {
-				UserName  string
-				AvatarURL string
-			}{UserName: "", AvatarURL: ""}
-			continue
-		}
-		userProfiles[id] = struct {
-			UserName  string
-			AvatarURL string
-		}{UserName: profile.UserProfile.UserName, AvatarURL: profile.UserProfile.AvatarData}
+	}, len(userIDs))
+	for result := range results {
+		userProfiles[result.id] = result.profile
 	}
 
 	// Construct PascalCase response
@@ -1475,10 +1502,9 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 		TopKGlobal   []UserScoreResponse `json:"TopKGlobal"`
 		TopKEntity   []UserScoreResponse `json:"TopKEntity"`
 	}{
-		UserId:    resp.UserId,
-		UserName:  userProfiles[resp.UserId].UserName,
-		AvatarURL: userProfiles[resp.UserId].AvatarURL,
-		// ProblemsDone: resp.ProblemsDone,
+		UserId:     resp.UserId,
+		UserName:   userProfiles[resp.UserId].UserName,
+		AvatarURL:  userProfiles[resp.UserId].AvatarURL,
 		Score:      resp.Score,
 		Entity:     resp.Entity,
 		GlobalRank: resp.GlobalRank,
