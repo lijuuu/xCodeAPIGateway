@@ -458,13 +458,15 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
 	)
 	{
+		//list additional fields for admin
+		ProblemsPrivate.GET("/list/all", ProblemController.ListProblemsHandler)
 		// detail: "Creates a new problem"
 		// type: POST
 		// url: BaseURL/api/v1/problems/
 		// requesttype: JSON
 		// request structure: {"title": "New Problem", "description": "Solve this...", "tags": ["array", "math"], "difficulty": "easy"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "slug": "new-problem", "message": "Problem created"}, "error": null}
-		ProblemsPublic.POST("/", ProblemController.CreateProblemHandler)
+		ProblemsPrivate.POST("/", ProblemController.CreateProblemHandler)
 
 		// detail: "Updates an existing problem"
 		// type: PUT
@@ -472,7 +474,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "title": "Updated Problem", "description": "Updated description...", "tags": ["array"], "difficulty": "medium"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "message": "Problem updated"}, "error": null}
-		ProblemsPublic.PUT("/", ProblemController.UpdateProblemHandler)
+		ProblemsPrivate.PUT("/", ProblemController.UpdateProblemHandler)
 
 		// detail: "Deletes a problem"
 		// type: DELETE
@@ -480,7 +482,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: QueryParams
 		// request structure: {"problem_id": "uuid"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "message": "Problem deleted"}, "error": null}
-		ProblemsPublic.DELETE("/", ProblemController.DeleteProblemHandler)
+		ProblemsPrivate.DELETE("/", ProblemController.DeleteProblemHandler)
 
 		// detail: "Gets a problem by ID"
 		// type: GET
@@ -488,7 +490,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: QueryParams
 		// request structure: {"problem_id": "uuid"}
 		// response structure: {"success": true, "status": 200, "payload": {"problem": {"problem_id": "uuid", "title": "Two Sum", "slug": "two-sum", "difficulty": "easy", "description": "Given an array...", "tags": ["array", "math"], "supported_languages": ["go", "python"], "test_cases": {"run": [{"input": "1 2", "expected": "3"}], "submit": [{"input": "1 2", "expected": "3"}]}, "created_at": "2025-04-22T12:00:00Z"}, "message": "Problem retrieved"}, "error": null}
-		ProblemsPublic.GET("/", ProblemController.GetProblemHandler)
+		ProblemsPrivate.GET("/", ProblemController.GetProblemHandler)
 
 		// detail: "Adds test cases to a problem"
 		// type: POST
@@ -496,7 +498,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "testcases": {"run": [{"input": "1 2", "expected": "3"}], "submit": [{"input": "4 5", "expected": "9"}]}}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Test cases added", "added_count": 2, "problem_id": "uuid"}, "error": null}
-		ProblemsPublic.POST("/testcases", ProblemController.AddTestCasesHandler)
+		ProblemsPrivate.POST("/testcases", ProblemController.AddTestCasesHandler)
 
 		// detail: "Deletes a single test case from a problem"
 		// type: DELETE

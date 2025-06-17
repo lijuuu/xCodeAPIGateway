@@ -195,6 +195,7 @@ func (c *ProblemController) GetProblemHandler(ctx *gin.Context) {
 		})
 		return
 	}
+	fmt.Println("visible ", resp.Problem.Visible)
 	ctx.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
@@ -215,6 +216,13 @@ func (c *ProblemController) ListProblemsHandler(ctx *gin.Context) {
 	req.Difficulty = ctx.Query("difficulty")
 	req.SearchQuery = ctx.Query("search_query")
 	req.TraceID = GetTraceID(&ctx.Request.Header)
+
+	// if role, ok := ctx.Get(middleware.RoleKey); ok && role == middleware.RoleAdmin {
+	// 	req.IsAdmin = true
+	// } else {
+	// 	req.IsAdmin = false
+	// }
+
 	resp, err := c.problemClient.ListProblems(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
