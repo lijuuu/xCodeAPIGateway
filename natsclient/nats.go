@@ -5,20 +5,21 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"go.uber.org/zap"
 )
 
 type NatsClient struct {
 	Conn *nats.Conn
 }
 
-func NewNatsClient(natsURL string) (*NatsClient, error) {
+func NewNatsClient(natsURL string, log *zap.Logger) *NatsClient {
 	nc, err := nats.Connect(natsURL)
 	fmt.Printf("Tried connecting with nats: %v output: %v\n", natsURL, err)
 	if err != nil {
-		return nil, err
+		log.Fatal("Failed to create NATS client", zap.String("error", err.Error()))
 	}
-	fmt.Println("Nats connected")
-	return &NatsClient{Conn: nc}, nil
+	log.Info("NATS Client Connected")
+	return &NatsClient{Conn: nc}
 }
 
 func (n *NatsClient) Close() {

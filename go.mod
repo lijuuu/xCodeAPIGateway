@@ -10,7 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250430031138-95bc7005d42c
+	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250617033802-3e75143397ea
 	github.com/nats-io/nats.go v1.39.1
 	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/zap v1.27.0

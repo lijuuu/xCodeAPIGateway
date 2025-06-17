@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	ProblemService "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -25,12 +27,13 @@ import (
 
 // UserController handles user-related API requests
 type UserController struct {
-	userClient AuthUserAdminService.AuthUserAdminServiceClient
-	googleCfg  *oauth2.Config
+	userClient    AuthUserAdminService.AuthUserAdminServiceClient
+	problemClient ProblemService.ProblemsServiceClient
+	googleCfg     *oauth2.Config
 }
 
 // NewUserController creates a new instance of UserController
-func NewUserController(userClient AuthUserAdminService.AuthUserAdminServiceClient) *UserController {
+func NewUserController(userClient AuthUserAdminService.AuthUserAdminServiceClient, problemClient ProblemService.ProblemsServiceClient) *UserController {
 	config := configs.LoadConfig()
 	googleCfg := &oauth2.Config{
 		ClientID:     config.GoogleClientID,
@@ -40,8 +43,9 @@ func NewUserController(userClient AuthUserAdminService.AuthUserAdminServiceClien
 		Endpoint:     google.Endpoint,
 	}
 	return &UserController{
-		userClient: userClient,
-		googleCfg:  googleCfg,
+		userClient:    userClient,
+		googleCfg:     googleCfg,
+		problemClient: problemClient,
 	}
 }
 
@@ -779,7 +783,10 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		TraceID: GetTraceID(&c.Request.Header),
 	}
 
-	fmt.Println("before udpate ", updateProfileRequest)
+	var forceChangeCountryLeaderboard bool
+	if req.Country != "" {
+		forceChangeCountryLeaderboard = true
+	}
 
 	resp, err := uc.userClient.UpdateProfile(c.Request.Context(), updateProfileRequest)
 	if err != nil {
@@ -799,6 +806,13 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 			},
 		})
 		return
+	}
+
+	if forceChangeCountryLeaderboard {
+		uc.problemClient.ForceChangeUserEntityInSubmission(context.Background(), &ProblemService.ForceChangeUserEntityInSubmissionRequest{
+			Entity: req.Country,
+			UserId: userID.(string),
+		})
 	}
 
 	c.JSON(http.StatusOK, model.GenericResponse{

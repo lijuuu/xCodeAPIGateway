@@ -79,7 +79,7 @@ func main() {
 	}))
 
 	// routes
-	route.SetupRoutes(r, client, cfg.JWTSecretKey)
+	route.SetupRoutes(r, client, cfg.JWTSecretKey,log)
 
 	// start server
 	port := cfg.APIGATEWAYPORT

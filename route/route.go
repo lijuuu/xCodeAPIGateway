@@ -1,7 +1,6 @@
 package router
 
 import (
-	"log"
 	"xcode/clients"
 	"xcode/configs"
 	"xcode/controller"
@@ -11,21 +10,21 @@ import (
 	"github.com/gin-gonic/gin"
 	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
 	ProblemsService "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
+	"go.uber.org/zap"
 )
 
 // SetupRoutes initializes all API routes with middleware and controllers under /api/v1/
-func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecret string) {
-	// Initialize gRPC clients and controllers
-	UserClient := AuthUserAdminService.NewAuthUserAdminServiceClient(Clients.ConnUser)
-	UserController := controller.NewUserController(UserClient)
+func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecret string, log *zap.Logger) {
 
-	NatsClient, err := natsclient.NewNatsClient(configs.LoadConfig().NATSURL)
-	if err != nil {
-		log.Fatalf("Failed to create NATS client: %v", err)
-	}
+	NatsClient := natsclient.NewNatsClient(configs.LoadConfig().NATSURL,log)
+
+	// Initialize gRPC clients
+	ProblemClient := ProblemsService.NewProblemsServiceClient(Clients.ConnProblem)
+	UserClient := AuthUserAdminService.NewAuthUserAdminServiceClient(Clients.ConnUser)
+
+	UserController := controller.NewUserController(UserClient, ProblemClient)
 	CompilerController := controller.NewCompilerController(NatsClient)
 
-	ProblemClient := ProblemsService.NewProblemsServiceClient(Clients.ConnProblem)
 	ProblemController := controller.NewProblemController(ProblemClient, UserClient)
 
 	// Base API group with version prefix
