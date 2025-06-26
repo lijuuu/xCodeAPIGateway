@@ -765,7 +765,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	updateProfileRequest := &AuthUserAdminService.UpdateProfileRequest{
 		UserID:            userID.(string),
 		UserName:          req.UserName,

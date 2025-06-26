@@ -454,8 +454,8 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 	ProblemsPrivate := Problems.Group("")
 	ProblemsPrivate.Use(
 		middleware.JWTAuthMiddleware(JWTSecret),
-		middleware.RoleAuthMiddleware(middleware.RoleUser, middleware.RoleAdmin),
-		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
+		middleware.RoleAuthMiddleware( middleware.RoleAdmin),
+		// middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
 	)
 	{
 		//list additional fields for admin
@@ -506,7 +506,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "testcase_id": "testcase_uuid", "is_run_testcase": true}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Test case deleted", "problem_id": "uuid", "testcase_id": "testcase_uuid"}, "error": null}
-		ProblemsPublic.DELETE("/testcases/single", ProblemController.DeleteTestCaseHandler)
+		ProblemsPrivate.DELETE("/testcases/single", ProblemController.DeleteTestCaseHandler)
 
 		// detail: "Adds language support to a problem"
 		// type: POST
@@ -514,7 +514,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "language": "go", "validation_code": {"placeholder": "func main() {}", "code": "func validate(input string) string {}", "template": "package main\nimport \"fmt\"\nfunc main() {}"}}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Language support added", "problem_id": "uuid", "language": "go"}, "error": null}
-		ProblemsPublic.POST("/language", ProblemController.AddLanguageSupportHandler)
+		ProblemsPrivate.POST("/language", ProblemController.AddLanguageSupportHandler)
 
 		// detail: "Updates language support for a problem"
 		// type: PUT
@@ -522,7 +522,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "language": "go", "validation_code": {"placeholder": "func main() {}", "code": "func validate(input string) string {}", "template": "package main\nimport \"fmt\"\nfunc main() {}"}}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Language support updated", "problem_id": "uuid", "language": "go"}, "error": null}
-		ProblemsPublic.PUT("/language", ProblemController.UpdateLanguageSupportHandler)
+		ProblemsPrivate.PUT("/language", ProblemController.UpdateLanguageSupportHandler)
 
 		// detail: "Removes language support from a problem"
 		// type: DELETE
@@ -530,7 +530,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "language": "go"}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Language support removed", "problem_id": "uuid", "language": "go"}, "error": null}
-		ProblemsPublic.DELETE("/language", ProblemController.RemoveLanguageSupportHandler)
+		ProblemsPrivate.DELETE("/language", ProblemController.RemoveLanguageSupportHandler)
 
 		// detail: "Validates a problem by ID"
 		// type: GET
@@ -538,7 +538,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: QueryParams
 		// request structure: {"problem_id": "uuid"}
 		// response structure: {"success": true, "status": 200, "payload": {"message": "Validation successful", "problem_id": "uuid", "validation_status": "valid"}, "error": null}
-		ProblemsPublic.GET("/validate", ProblemController.FullValidationByProblemIDHandler)
+		ProblemsPrivate.GET("/validate", ProblemController.FullValidationByProblemIDHandler)
 
 		// detail: "Gets supported languages for a problem"
 		// type: GET
@@ -554,7 +554,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// requesttype: JSON
 		// request structure: {"problem_id": "uuid", "user_code": "func add(a, b int) int { return a + b }", "language": "go", "is_run_testcase": true}
 		// response structure: {"success": true, "status": 200, "payload": {"problem_id": "uuid", "language": "go", "is_run_testcase": true, "rawoutput": {"passed": true, "results": [{"testcase_id": "uuid", "input": "1 2", "expected": "3", "actual": "3", "passed": true}], "execution_time_ms": 120, "memory_used_kb": 2048}, "message": "Code executed"}, "error": null}
-		ProblemsPrivate.POST("/execute", ProblemController.RunUserCodeProblemHandler)
+		ProblemsPublic.POST("/execute", ProblemController.RunUserCodeProblemHandler)
 
 		// detail: "Gets submission history for a user, optionally filtered by problem"
 		// type: GET

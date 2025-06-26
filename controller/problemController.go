@@ -2198,3 +2198,50 @@ func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
 		},
 	})
 }
+
+func (u *ProblemController) ProblemIDsDoneByUserID(c *gin.Context) {
+	var req pb.GetBulkProblemMetadataRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.ProblemIds) == 0 {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing fields, please ensure problem_ids are added as array",
+				Details:   "Missing fields, please ensure problem_ids are added as array, Example problem_ids:[prob1,prob2....]",
+			},
+		})
+		return
+	}
+
+	resp, err := u.problemClient.GetBulkProblemMetadata(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_NOT_FOUND,
+				Code:      http.StatusNotFound,
+				Message:   err.Error(),
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "bulk problems metadata fetched successfully",
+			Details:   "bulk problems metadata fetched successfully",
+		},
+	})
+}
