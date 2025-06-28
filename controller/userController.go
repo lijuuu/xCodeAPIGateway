@@ -16,8 +16,8 @@ import (
 	cache "xcode/ristretto"
 
 	"github.com/gin-gonic/gin"
-	AuthUserAdminService "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
-	ProblemService "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
+	authUserAdminPB "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	problemPB "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -27,13 +27,13 @@ import (
 
 // UserController handles user-related API requests
 type UserController struct {
-	userClient    AuthUserAdminService.AuthUserAdminServiceClient
-	problemClient ProblemService.ProblemsServiceClient
+	userClient    authUserAdminPB.AuthUserAdminServiceClient
+	problemClient problemPB.ProblemsServiceClient
 	googleCfg     *oauth2.Config
 }
 
 // NewUserController creates a new instance of UserController
-func NewUserController(userClient AuthUserAdminService.AuthUserAdminServiceClient, problemClient ProblemService.ProblemsServiceClient) *UserController {
+func NewUserController(userClient authUserAdminPB.AuthUserAdminServiceClient, problemClient problemPB.ProblemsServiceClient) *UserController {
 	config := configs.LoadConfig()
 	googleCfg := &oauth2.Config{
 		ClientID:     config.GoogleClientID,
@@ -50,7 +50,7 @@ func NewUserController(userClient AuthUserAdminService.AuthUserAdminServiceClien
 }
 
 // GetUserClient returns the user service client for middleware use
-func (uc *UserController) GetUserClient() AuthUserAdminService.AuthUserAdminServiceClient {
+func (uc *UserController) GetUserClient() authUserAdminPB.AuthUserAdminServiceClient {
 	return uc.userClient
 }
 
@@ -111,7 +111,7 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 		return
 	}
 
-	registerUserRequest := &AuthUserAdminService.RegisterUserRequest{
+	registerUserRequest := &authUserAdminPB.RegisterUserRequest{
 		FirstName:       req.FirstName,
 		LastName:        req.LastName,
 		Email:           req.Email,
@@ -172,7 +172,7 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 		return
 	}
 
-	loginUserRequest := &AuthUserAdminService.LoginUserRequest{
+	loginUserRequest := &authUserAdminPB.LoginUserRequest{
 		Email:         req.Email,
 		Password:      req.Password,
 		TwoFactorCode: req.Code,
@@ -245,7 +245,7 @@ func (uc *UserController) GoogleLoginCallback(c *gin.Context) {
 		return
 	}
 
-	googleReq := &AuthUserAdminService.GoogleLoginRequest{
+	googleReq := &authUserAdminPB.GoogleLoginRequest{
 		IdToken: token.AccessToken,
 	}
 
@@ -292,7 +292,7 @@ func (uc *UserController) LoginAdminHandler(c *gin.Context) {
 		return
 	}
 
-	loginAdminRequest := &AuthUserAdminService.LoginAdminRequest{
+	loginAdminRequest := &authUserAdminPB.LoginAdminRequest{
 		Email:    req.Email,
 		Password: req.Password,
 		TraceID:  GetTraceID(&c.Request.Header),
@@ -349,7 +349,7 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 		return
 	}
 
-	tokenRefreshRequest := &AuthUserAdminService.TokenRefreshRequest{
+	tokenRefreshRequest := &authUserAdminPB.TokenRefreshRequest{
 		RefreshToken: req.RefreshToken,
 		TraceID:      GetTraceID(&c.Request.Header),
 	}
@@ -448,7 +448,7 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 		return
 	}
 
-	resendEmailVerificationRequest := &AuthUserAdminService.ResendEmailVerificationRequest{
+	resendEmailVerificationRequest := &authUserAdminPB.ResendEmailVerificationRequest{
 		Email:   email,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -502,7 +502,7 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 		return
 	}
 
-	verifyUserRequest := &AuthUserAdminService.VerifyUserRequest{
+	verifyUserRequest := &authUserAdminPB.VerifyUserRequest{
 		Email:   email,
 		Token:   token,
 		TraceID: GetTraceID(&c.Request.Header),
@@ -569,7 +569,7 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 		return
 	}
 
-	forgotPasswordRequest := &AuthUserAdminService.ForgotPasswordRequest{
+	forgotPasswordRequest := &authUserAdminPB.ForgotPasswordRequest{
 		Email:   req.Email,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -622,7 +622,7 @@ func (uc *UserController) FinishForgotPasswordHandler(c *gin.Context) {
 		return
 	}
 
-	finishForgotPasswordRequest := &AuthUserAdminService.FinishForgotPasswordRequest{
+	finishForgotPasswordRequest := &authUserAdminPB.FinishForgotPasswordRequest{
 		Email:           req.Email,
 		Token:           req.Token,
 		NewPassword:     req.NewPassword,
@@ -694,7 +694,7 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 		return
 	}
 
-	changePasswordRequest := &AuthUserAdminService.ChangePasswordRequest{
+	changePasswordRequest := &authUserAdminPB.ChangePasswordRequest{
 		UserID:          userID.(string),
 		OldPassword:     req.OldPassword,
 		NewPassword:     req.NewPassword,
@@ -766,7 +766,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		return
 	}
 
-	updateProfileRequest := &AuthUserAdminService.UpdateProfileRequest{
+	updateProfileRequest := &authUserAdminPB.UpdateProfileRequest{
 		UserID:            userID.(string),
 		UserName:          req.UserName,
 		FirstName:         req.FirstName,
@@ -775,7 +775,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		Bio:               req.Bio,
 		PrimaryLanguageID: req.PrimaryLanguageID,
 		MuteNotifications: req.MuteNotifications,
-		Socials: &AuthUserAdminService.Socials{
+		Socials: &authUserAdminPB.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
 			Linkedin: req.Socials.Linkedin,
@@ -809,7 +809,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 	}
 
 	if forceChangeCountryLeaderboard {
-		uc.problemClient.ForceChangeUserEntityInSubmission(context.Background(), &ProblemService.ForceChangeUserEntityInSubmissionRequest{
+		uc.problemClient.ForceChangeUserEntityInSubmission(context.Background(), &problemPB.ForceChangeUserEntityInSubmissionRequest{
 			Entity: req.Country,
 			UserId: userID.(string),
 		})
@@ -863,7 +863,7 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 
 	avatarUrl, _ := utils.UploadToCloudinary(file)
 
-	updateProfileImageRequest := &AuthUserAdminService.UpdateProfileImageRequest{
+	updateProfileImageRequest := &authUserAdminPB.UpdateProfileImageRequest{
 		UserID:    userID.(string),
 		AvatarURL: avatarUrl,
 		TraceID:   GetTraceID(&c.Request.Header),
@@ -920,7 +920,7 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 		return
 	}
 
-	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
+	getUserProfileRequest := &authUserAdminPB.GetUserProfileRequest{
 		UserID:  userID.(string),
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -978,7 +978,7 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 		return
 	}
 
-	getUserProfileRequest := &AuthUserAdminService.GetUserProfileRequest{
+	getUserProfileRequest := &authUserAdminPB.GetUserProfileRequest{
 		UserID:   userIDparams,
 		UserName: &userNameparams,
 		TraceID:  GetTraceID(&c.Request.Header),
@@ -1032,7 +1032,7 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 		return
 	}
 
-	checkBanStatusRequest := &AuthUserAdminService.CheckBanStatusRequest{
+	checkBanStatusRequest := &authUserAdminPB.CheckBanStatusRequest{
 		UserID:  req.UserID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1105,7 +1105,7 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 		return
 	}
 
-	followUserRequest := &AuthUserAdminService.FollowUserRequest{
+	followUserRequest := &authUserAdminPB.FollowUserRequest{
 		FolloweeID: followUserID,
 		FollowerID: userID.(string),
 		TraceID:    GetTraceID(&c.Request.Header),
@@ -1174,7 +1174,7 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 		return
 	}
 
-	unfollowUserRequest := &AuthUserAdminService.UnfollowUserRequest{
+	unfollowUserRequest := &authUserAdminPB.UnfollowUserRequest{
 		FolloweeID: unfollowUserID,
 		FollowerID: userID.(string),
 		TraceID:    GetTraceID(&c.Request.Header),
@@ -1231,7 +1231,7 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 		}
 	}
 
-	getFollowingRequest := &AuthUserAdminService.GetFollowingRequest{
+	getFollowingRequest := &authUserAdminPB.GetFollowingRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1290,7 +1290,7 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 		}
 	}
 
-	getFollowersRequest := &AuthUserAdminService.GetFollowersRequest{
+	getFollowersRequest := &authUserAdminPB.GetFollowersRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1351,7 +1351,7 @@ func (uc *UserController) GetFollowFollowingCheckHandler(c *gin.Context) {
 
 	ownerUserID, _ := c.Get(middleware.EntityIDKey)
 
-	GetFollowFollowingCheckRequest := &AuthUserAdminService.GetFollowFollowingCheckRequest{
+	GetFollowFollowingCheckRequest := &authUserAdminPB.GetFollowFollowingCheckRequest{
 		TargetUserID: userID,
 		OwnerUserID:  ownerUserID.(string),
 		TraceID:      GetTraceID(&c.Request.Header),
@@ -1403,7 +1403,7 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 		return
 	}
 
-	createUserAdminRequest := &AuthUserAdminService.CreateUserAdminRequest{
+	createUserAdminRequest := &authUserAdminPB.CreateUserAdminRequest{
 		FirstName:       req.FirstName,
 		LastName:        req.LastName,
 		Role:            req.Role,
@@ -1478,7 +1478,7 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 		return
 	}
 
-	updateUserAdminRequest := &AuthUserAdminService.UpdateUserAdminRequest{
+	updateUserAdminRequest := &authUserAdminPB.UpdateUserAdminRequest{
 		UserID:            userID,
 		FirstName:         req.FirstName,
 		LastName:          req.LastName,
@@ -1488,7 +1488,7 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 		Password:          req.Password,
 		PrimaryLanguageID: req.PrimaryLanguageID,
 		MuteNotifications: req.MuteNotifications,
-		Socials: &AuthUserAdminService.Socials{
+		Socials: &authUserAdminPB.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
 			Linkedin: req.Socials.Linkedin,
@@ -1543,7 +1543,7 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 		return
 	}
 
-	banUserRequest := &AuthUserAdminService.BanUserRequest{
+	banUserRequest := &authUserAdminPB.BanUserRequest{
 		UserID:    req.UserID,
 		BanType:   req.BanType,
 		BanReason: req.BanReason,
@@ -1597,7 +1597,7 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 		return
 	}
 
-	unbanUserRequest := &AuthUserAdminService.UnbanUserRequest{
+	unbanUserRequest := &authUserAdminPB.UnbanUserRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1649,7 +1649,7 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 		return
 	}
 
-	verifyAdminUserRequest := &AuthUserAdminService.VerifyAdminUserRequest{
+	verifyAdminUserRequest := &authUserAdminPB.VerifyAdminUserRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1701,7 +1701,7 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 		return
 	}
 
-	unverifyUserRequest := &AuthUserAdminService.UnverifyUserAdminRequest{
+	unverifyUserRequest := &authUserAdminPB.UnverifyUserAdminRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1753,7 +1753,7 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 		return
 	}
 
-	softDeleteUserAdminRequest := &AuthUserAdminService.SoftDeleteUserAdminRequest{
+	softDeleteUserAdminRequest := &authUserAdminPB.SoftDeleteUserAdminRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1789,7 +1789,7 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
-	getAllUsersRequest := &AuthUserAdminService.GetAllUsersRequest{
+	getAllUsersRequest := &authUserAdminPB.GetAllUsersRequest{
 		TraceID: GetTraceID(&c.Request.Header),
 	}
 
@@ -1916,7 +1916,7 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 		userID = ctxUserID.(string)
 	}
 
-	banHistoryRequest := &AuthUserAdminService.BanHistoryRequest{
+	banHistoryRequest := &authUserAdminPB.BanHistoryRequest{
 		UserID:  userID,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -1979,7 +1979,7 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 		return
 	}
 
-	searchUsersRequest := &AuthUserAdminService.SearchUsersRequest{
+	searchUsersRequest := &authUserAdminPB.SearchUsersRequest{
 		Query:     query,
 		PageToken: pageToken,
 		Limit:     limit,
@@ -2038,7 +2038,7 @@ func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 		return
 	}
 
-	setUpTwoFactorAuthRequest := &AuthUserAdminService.SetUpTwoFactorAuthRequest{
+	setUpTwoFactorAuthRequest := &authUserAdminPB.SetUpTwoFactorAuthRequest{
 		UserID:   req.UserID,
 		Password: req.Password,
 		TraceID:  GetTraceID(&c.Request.Header),
@@ -2093,7 +2093,7 @@ func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 		return
 	}
 
-	getTwoFactorAuthStatusRequest := &AuthUserAdminService.GetTwoFactorAuthStatusRequest{
+	getTwoFactorAuthStatusRequest := &authUserAdminPB.GetTwoFactorAuthStatusRequest{
 		Email:   email,
 		TraceID: GetTraceID(&c.Request.Header),
 	}
@@ -2168,7 +2168,7 @@ func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
 	}
 
 	// verify code
-	verifyRequest := &AuthUserAdminService.VerifyTwoFactorAuthRequest{
+	verifyRequest := &authUserAdminPB.VerifyTwoFactorAuthRequest{
 		UserID:        userID.(string),
 		TwoFactorCode: req.TwoFactorCode,
 		TraceID:       GetTraceID(&c.Request.Header),
@@ -2225,7 +2225,7 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 		return
 	}
 
-	deleteTwoFactorAuthRequest := &AuthUserAdminService.DisableTwoFactorAuthRequest{
+	deleteTwoFactorAuthRequest := &authUserAdminPB.DisableTwoFactorAuthRequest{
 		UserID:   req.UserID,
 		Password: req.Password,
 		Otp:      req.Otp,
@@ -2263,7 +2263,7 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 }
 
 // Mapping functions remain unchanged
-func mapUserProfileHelper(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
+func mapUserProfileHelper(protoProfile *authUserAdminPB.UserProfile) model.UserProfile {
 	if protoProfile == nil {
 		return model.UserProfile{}
 	}
@@ -2297,7 +2297,7 @@ func mapUserProfileHelper(protoProfile *AuthUserAdminService.UserProfile) model.
 	}
 }
 
-func mapUserProfileForAdminsHelper(protoProfile *AuthUserAdminService.UserProfile) model.UserProfile {
+func mapUserProfileForAdminsHelper(protoProfile *authUserAdminPB.UserProfile) model.UserProfile {
 	if protoProfile == nil {
 		return model.UserProfile{}
 	}
@@ -2355,7 +2355,7 @@ func (uc *UserController) UserAvailable(ctx *gin.Context) {
 		return
 	}
 
-	resp, _ := uc.userClient.UsernameAvailable(ctx.Request.Context(), &AuthUserAdminService.UsernameAvailableRequest{
+	resp, _ := uc.userClient.UsernameAvailable(ctx.Request.Context(), &authUserAdminPB.UsernameAvailableRequest{
 		Username: username,
 	})
 
@@ -2381,14 +2381,14 @@ func (uc *UserController) UserAvailable(ctx *gin.Context) {
 
 }
 
-func mapUserProfiles(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {
+func mapUserProfiles(protoProfiles []*authUserAdminPB.UserProfile) []model.UserProfile {
 	profiles := make([]model.UserProfile, len(protoProfiles))
 	for i, p := range protoProfiles {
 		profiles[i] = mapUserProfileHelper(p)
 	}
 	return profiles
 }
-func mapUserProfilesforAdmins(protoProfiles []*AuthUserAdminService.UserProfile) []model.UserProfile {
+func mapUserProfilesforAdmins(protoProfiles []*authUserAdminPB.UserProfile) []model.UserProfile {
 	profiles := make([]model.UserProfile, len(protoProfiles))
 	for i, p := range protoProfiles {
 		profiles[i] = mapUserProfileForAdminsHelper(p)
@@ -2396,7 +2396,7 @@ func mapUserProfilesforAdmins(protoProfiles []*AuthUserAdminService.UserProfile)
 	return profiles
 }
 
-func mapBanHistory(protoBan *AuthUserAdminService.BanHistory) model.BanHistory {
+func mapBanHistory(protoBan *authUserAdminPB.BanHistory) model.BanHistory {
 	return model.BanHistory{
 		ID:        protoBan.Id,
 		UserID:    protoBan.UserID,
@@ -2407,7 +2407,7 @@ func mapBanHistory(protoBan *AuthUserAdminService.BanHistory) model.BanHistory {
 	}
 }
 
-func mapBanHistories(protoBans []*AuthUserAdminService.BanHistory) []model.BanHistory {
+func mapBanHistories(protoBans []*authUserAdminPB.BanHistory) []model.BanHistory {
 	bans := make([]model.BanHistory, len(protoBans))
 	for i, b := range protoBans {
 		bans[i] = mapBanHistory(b)

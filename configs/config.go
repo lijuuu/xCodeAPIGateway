@@ -27,9 +27,10 @@ type Config struct {
 
 	FrontendURL string
 
-	UserGRPCURL     string
-	CompilerGRPCURL string
-	ProblemGRPCURL  string
+	UserGRPCURL      string
+	CompilerGRPCURL  string
+	ProblemGRPCURL   string
+	ChallengeGRPCURL string
 }
 
 // LoadConfig loads configuration from environment variables with defaults
@@ -55,9 +56,10 @@ func LoadConfig() Config {
 		BetterStackUploadURL:   getEnv("BETTERSTACKUPLOADURL", ""),
 		FrontendURL:            getEnv("FRONTENDURL", "http://localhost:8080"),
 
-		UserGRPCURL:     getEnv("USERGRPCURL", "localhost:50051"),
-		CompilerGRPCURL: getEnv("COMPILERGRPCURL", "localhost:50053"),
-		ProblemGRPCURL:  getEnv("PROBLEMGRPCURL", "localhost:50055"),
+		UserGRPCURL:      getEnv("USERGRPCURL", "localhost:50051"),
+		CompilerGRPCURL:  getEnv("COMPILERGRPCURL", "localhost:50053"),
+		ProblemGRPCURL:   getEnv("PROBLEMGRPCURL", "localhost:50055"),
+		ChallengeGRPCURL: getEnv("CHALLENGEGRPCURL", "localhost:50057"),
 	}
 }
 
