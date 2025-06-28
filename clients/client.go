@@ -19,17 +19,19 @@ type ClientConnections struct {
 }
 
 func InitClients(config *config.Config) (*ClientConnections, error) {
+
 	// Connect to Problem gRPC service
 	targetProblem := config.ProblemGRPCURL
 	log.Println("Target ProblemGRPC URL ", targetProblem)
-	connProblem, err := grpc.NewClient(
-		targetProblem,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	connProblem, err := grpc.Dial(targetProblem, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Problem gRPC server: %v", err.Error())
+		// connUser.Close() // Clean up previous connection
+		return nil, fmt.Errorf("failed to connect to Problem gRPC server: %v", err)
 	}
+
+	// Check connection state
 	if !waitForConnection(connProblem, 5*time.Second) {
+		// connUser.Close()
 		connProblem.Close()
 		return nil, fmt.Errorf("problem gRPC connection is not ready")
 	}
@@ -38,34 +40,32 @@ func InitClients(config *config.Config) (*ClientConnections, error) {
 	// Connect to User gRPC service
 	targetUser := config.UserGRPCURL
 	log.Println("Target UserGRPC URL ", targetUser)
-	connUser, err := grpc.NewClient(
-		targetUser,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	connUser, err := grpc.Dial(targetUser, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to User gRPC server: %v", err.Error())
+		return nil, fmt.Errorf("failed to connect to User gRPC server: %v", err)
 	}
+
+	// Check connection state
 	if !waitForConnection(connUser, 5*time.Second) {
 		connUser.Close()
 		return nil, fmt.Errorf("user gRPC connection is not ready")
 	}
 	fmt.Println("Successfully connected to UserService at:", targetUser)
 
-	// Connect to Challenge gRPC service
+	// Connect to User gRPC service
 	// targetChallenge := config.ChallengeGRPCURL
-	// log.Println("Target ChallengeGRPCURL ", targetChallenge)
-	// connChallenge, err := grpc.NewClient(
-	// 	targetChallenge,
-	// 	grpc.WithTransportCredentials(insecure.NewCredentials()),
-	// )
+	// log.Println("Target UserGRPC URL ", targetUser)
+	// connChallenge, err := grpc.Dial(targetChallenge, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to connect to Challenge gRPC server:%v", err.Error())
+	// 	return nil, fmt.Errorf("failed to connect to User gRPC server: %v", err)
 	// }
-	// if !waitForConnection(connChallenge, 5*time.Second) {
-	// 	connChallenge.Close()
-	// 	return nil, fmt.Errorf("challenge gRPC connection is not ready")
+
+	// // Check connection state
+	// if !waitForConnection(connUser, 5*time.Second) {
+	// 	connUser.Close()
+	// 	return nil, fmt.Errorf("User gRPC connection is not ready")
 	// }
-	// fmt.Println("Successfully connected to ChallengeService at:", targetChallenge)
+	// fmt.Println("Successfully connected to UserService at:", targetUser)
 
 	return &ClientConnections{
 		ConnUser:      connUser,
