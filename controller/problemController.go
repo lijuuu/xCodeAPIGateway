@@ -1548,9 +1548,8 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 }
 
 func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
-	var req problemPB.GetBulkProblemMetadataRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil || len(req.ProblemIds) == 0 {
+	problemIDs := c.QueryArray("problem_ids")
+	if len(problemIDs) == 0 {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1559,10 +1558,14 @@ func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
 				Message:   "Missing fields, please ensure problem_ids are added as array",
-				Details:   "Missing fields, please ensure problem_ids are added as array, Example problem_ids:[prob1,prob2....]",
+				Details:   "Missing fields, please ensure problem_ids are added as array, Example: ?problem_ids=prob1&problem_ids=prob2",
 			},
 		})
 		return
+	}
+
+	req := problemPB.GetBulkProblemMetadataRequest{
+		ProblemIds: problemIDs,
 	}
 
 	resp, err := u.problemClient.GetBulkProblemMetadata(c.Request.Context(), &req)
@@ -1597,19 +1600,25 @@ func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
 func (u *ProblemController) ProblemIDsDoneByUserID(c *gin.Context) {
 	var req problemPB.ProblemIDsDoneByUserIDRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_REQUEST,
-				Code:      http.StatusBadRequest,
-				Message:   "provide user_id",
-				Details:   "provide user_id",
-			},
-		})
-		return
+	// Try to get user_id from query if not provided in JSON
+	userID := c.Query("user_id")
+	if userID != "" {
+		req.UserId = userID
+	} else {
+		if err := c.ShouldBindJSON(&req); err != nil || req.UserId == "" {
+			c.JSON(http.StatusBadRequest, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusBadRequest,
+				Payload: nil,
+				Error: &model.ErrorInfo{
+					ErrorType: customerrors.ERR_INVALID_REQUEST,
+					Code:      http.StatusBadRequest,
+					Message:   "provide user_id",
+					Details:   "provide user_id in query or JSON body",
+				},
+			})
+			return
+		}
 	}
 
 	resp, err := u.problemClient.ProblemIDsDoneByUserID(c.Request.Context(), &req)
@@ -1637,6 +1646,100 @@ func (u *ProblemController) ProblemIDsDoneByUserID(c *gin.Context) {
 			Code:      http.StatusOK,
 			Message:   "ProblemIDsDoneByUserID fetched successfully",
 			Details:   "ProblemIDsDoneByUserID fetched successfully",
+		},
+	})
+}
+
+func (u *ProblemController) VerifyProblemExistenceBulk(c *gin.Context) {
+	var req problemPB.VerifyProblemExistenceBulkRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.ProblemIds) == 0 {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "provide problem_ids",
+				Details:   "provide problem_ids",
+			},
+		})
+		return
+	}
+
+	resp, err := u.problemClient.VerifyProblemExistenceBulk(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_NOT_FOUND,
+				Code:      http.StatusNotFound,
+				Message:   err.Error(),
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "VerifyProblemExistenceBulk fetched successfully",
+			Details:   "VerifyProblemExistenceBulk fetched successfully",
+		},
+	})
+}
+
+func (u *ProblemController) RandomProblemIDsGenWithDifficultyRatio(c *gin.Context) {
+	var req problemPB.RandomProblemIDsGenWithDifficultyRatioRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil || req.GetQnratio() == nil {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "provide difficulty qnratio:{easy:n,medium:n,hard:n}",
+				Details:   "provide difficulty qnratio:{easy:n,medium:n,hard:n}",
+			},
+		})
+		return
+	}
+
+	resp, err := u.problemClient.RandomProblemIDsGenWithDifficultyRatio(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_NOT_FOUND,
+				Code:      http.StatusNotFound,
+				Message:   err.Error(),
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "RandomProblemIDsGenWithDifficultyRatio fetched successfully",
+			Details:   "RandomProblemIDsGenWithDifficultyRatio fetched successfully",
 		},
 	})
 }

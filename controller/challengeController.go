@@ -3,635 +3,291 @@ package controller
 import (
 	"net/http"
 	"strconv"
+	"time"
+
 	"xcode/customerrors"
 	"xcode/middleware"
 	"xcode/model"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	challengePB "github.com/lijuuu/GlobalProtoXcode/ChallengeService"
 	problemPB "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
-	"google.golang.org/grpc/codes"
+
 	"google.golang.org/grpc/status"
 )
 
 type ChallengeController struct {
-	challengeClient      challengePB.ChallengeServiceClient
-	problemClient problemPB.ProblemsServiceClient
+	challengeClient challengePB.ChallengeServiceClient
+	problemClient   problemPB.ProblemsServiceClient
 }
 
 func NewChallengeController(challengeClient challengePB.ChallengeServiceClient, problemClient problemPB.ProblemsServiceClient) *ChallengeController {
 	return &ChallengeController{
-		problemClient: problemClient,
-		challengeClient:      challengeClient,
+		challengeClient: challengeClient,
+		problemClient:   problemClient,
 	}
 }
-
-//start challenge
-//join challenge
-//public challenge history
-//private challenge history
-//open public challenges
-//join private challenge -> get session hash for direct wss conn to challenge service.
 
 func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
-	var req problemPB.CreateChallengeRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	var req challengePB.ChallengeRecord
+
+	// bind json and validate title
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.Title == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_INVALID_REQUEST, Code: http.StatusBadRequest, Message: "Invalid request", Details: err.Error()},
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "invalid request: missing or invalid title",
+				Details:   err.Error(),
+			},
 		})
 		return
 	}
 
-	userID, _ := ctx.Get(middleware.EntityIDKey)
-	req.CreatorId = userID.(string)
-
-	resp, err := c.problemClient.CreateChallenge(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
+	// check title length
+	if len(req.Title) < 3 {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to create challenge", Details: grpcStatus.Message()},
-		})
-		return
-	}
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) GetChallengeDetails(ctx *gin.Context) {
-	var req problemPB.GetChallengeDetailsRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	req.Id = ctx.Query("challenge_id")
-	// req.UserId = ctx.Query("user_id")
-
-	if req.Id == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_INVALID_REQUEST, Code: http.StatusBadRequest, Message: "Invalid request", Details: "challenge_id and user_id are required"},
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "title must be at least 3 characters",
+			},
 		})
 		return
 	}
 
-	resp, err := c.problemClient.GetChallengeDetails(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
+	// generate challenge id
+	req.ChallengeId = uuid.New().String()
+
+	// get creator id from context
+	userID, ok := middleware.GetEntityID(ctx)
+	if !ok || userID == "" {
+		ctx.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_UNAUTHORIZED,
+				Code:      http.StatusUnauthorized,
+				Message:   "unauthorized: missing user id",
+			},
+		})
+		return
+	}
+	req.CreatorId = userID
+
+	// set default status
+	if req.Status == "" {
+		req.Status = "pending"
+	}
+
+	// enforce min time limit
+	if req.TimeLimitMillis < 10000 {
+		req.TimeLimitMillis = 10000
+	}
+
+	// set default start time if invalid or too soon
+	nowPlus5Min := time.Now().Add(5 * time.Minute).Unix()
+	if req.StartTimeUnix == 0 || req.StartTimeUnix < nowPlus5Min {
+		req.StartTimeUnix = nowPlus5Min
+	}
+
+	// ensure config is not nil
+	if req.Config == nil {
+		req.Config = &challengePB.ChallengeConfig{}
+	}
+
+	// if user provided problem ids, verify them
+	if len(req.ProcessedProblemIds) > 0 {
+		_, err := c.problemClient.VerifyProblemExistenceBulk(ctx, &problemPB.VerifyProblemExistenceBulkRequest{
+			ProblemIds: req.ProcessedProblemIds,
+		})
+		if err != nil {
+			grpcStatus, _ := status.FromError(err)
+			ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusBadRequest,
+				Error: &model.ErrorInfo{
+					ErrorType: "grpc_error",
+					Code:      http.StatusBadRequest,
+					Message:   "some problems do not exist",
+					Details:   grpcStatus.Message(),
+				},
+			})
+			return
 		}
-		ctx.JSON(httpCode, model.GenericResponse{
+	} else {
+		// if no ratio provided, default to 1 easy
+		if req.Config.MaxEasyQuestions == 0 && req.Config.MaxMediumQuestions == 0 && req.Config.MaxHardQuestions == 0 {
+			req.Config.MaxEasyQuestions = 1
+		}
+
+		// generate problems from difficulty ratio
+		resp, err := c.problemClient.RandomProblemIDsGenWithDifficultyRatio(ctx, &problemPB.RandomProblemIDsGenWithDifficultyRatioRequest{
+			Qnratio: &problemPB.ProblemDifficultyRatio{
+				Easy:   req.Config.MaxEasyQuestions,
+				Medium: req.Config.MaxMediumQuestions,
+				Hard:   req.Config.MaxHardQuestions,
+			},
+		})
+		if err != nil {
+			grpcStatus, _ := status.FromError(err)
+			ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+				Success: false,
+				Status:  http.StatusInternalServerError,
+				Error: &model.ErrorInfo{
+					ErrorType: "grpc_error",
+					Code:      http.StatusInternalServerError,
+					Message:   "failed to generate problems",
+					Details:   grpcStatus.Message(),
+				},
+			})
+			return
+		}
+		req.ProcessedProblemIds = resp.ProblemIds
+	}
+
+	// create challenge via grpc
+	resp, err := c.challengeClient.CreateChallenge(ctx.Request.Context(), &req)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: httpCode, Message: "Failed to fetch challenge details", Details: grpcStatus.Message()},
+			Status:  http.StatusBadRequest,
+			Error: &model.ErrorInfo{
+				ErrorType: "grpc_error",
+				Code:      http.StatusBadRequest,
+				Message:   "failed to create challenge",
+				Details:   grpcStatus.Message(),
+			},
 		})
 		return
 	}
 
+	// return success response
 	ctx.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: resp,
-		Error:   nil,
 	})
 }
 
-func (c *ChallengeController) GetPublicChallenge(ctx *gin.Context) {
-	req := &problemPB.GetPublicChallengesRequest{}
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+func (c *ChallengeController) GetPublicChallenges(ctx *gin.Context) {
+	req := &challengePB.PaginationRequest{}
 
-	req.UserId = ctx.Query("user_id")
-	req.Difficulty = ctx.Query("difficulty")
-	req.IsActive = ctx.DefaultQuery("is_active", "false") == "true"
-
-	page, err := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	if err != nil {
-		page = 1
-	}
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 	req.Page = int32(page)
-
-	pageSize, err := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
-	if err != nil {
-		pageSize = 10
-	}
 	req.PageSize = int32(pageSize)
 
-	resp, err := c.problemClient.GetPublicChallenges(ctx.Request.Context(), req)
+	resp, err := c.challengeClient.GetPublicChallenges(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
 			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to fetch challenges", Details: grpcStatus.Message()},
+			Status:  http.StatusInternalServerError,
+			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Message: grpcStatus.Message()},
 		})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp,
-		Error:   nil,
-	})
+	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
 }
 
-func (c *ChallengeController) JoinChallenge(ctx *gin.Context) {
-	var req problemPB.JoinChallengeRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-	req.UserId = ctx.MustGet(middleware.EntityIDKey).(string)
-
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_INVALID_REQUEST, Code: http.StatusBadRequest, Message: "Invalid request", Details: err.Error()},
-		})
-		return
-	}
-
-	resp, err := c.problemClient.JoinChallenge(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusBadRequest
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: httpCode, Message: "Failed to join challenge", Details: grpcStatus.Message()},
-		})
-		return
-	}
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) StartChallenge(ctx *gin.Context) {
-	var req problemPB.StartChallengeRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_INVALID_REQUEST, Code: http.StatusBadRequest, Message: "Invalid request", Details: err.Error()},
-		})
-		return
-	}
-
-	userID, _ := ctx.Get(middleware.EntityIDKey)
-	req.UserId = userID.(string)
-
-	resp, err := c.problemClient.StartChallenge(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: "GRPC_ERROR", Code: http.StatusBadRequest, Message: "Failed to start challenge", Details: grpcStatus.Message()},
-		})
-		return
-	}
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) EndChallenge(ctx *gin.Context) {
-	var req problemPB.EndChallengeRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	if err := ctx.ShouldBindJSON(&req); err != nil || req.ChallengeId == "" || req.UserId == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_REQUEST,
-				Code:      http.StatusBadRequest,
-				Message:   "Invalid request",
-				Details:   "challenge_id and user_id are required",
-			},
-		})
-		return
-	}
-
-	resp, err := c.problemClient.EndChallenge(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		} else if grpcStatus.Code() == codes.InvalidArgument {
-			httpCode = http.StatusBadRequest
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      httpCode,
-				Message:   "Failed to end challenge",
-				Details:   grpcStatus.Message(),
-			},
-		})
-		return
-	}
-
-	if len(resp.Leaderboard) == 0 {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_RESPONSE,
-				Code:      http.StatusBadRequest,
-				Message:   "Invalid response from service",
-				Details:   "Leaderboard data is empty",
-			},
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: map[string]interface{}{
-			"message":     "Challenge ended successfully",
-			"leaderboard": resp.Leaderboard,
-		},
-		Error: nil,
-	})
-}
-
-func (c *ChallengeController) GetSubmissionStatus(ctx *gin.Context) {
-	var req problemPB.GetSubmissionStatusRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	req.SubmissionId = ctx.Query("submission_id")
-	if req.SubmissionId == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      http.StatusBadRequest,
-				Message:   "Failed to get submission status",
-				Details:   "submission_id is required",
-			},
-		})
-		return
-	}
-
-	resp, err := c.problemClient.GetSubmissionStatus(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      httpCode,
-				Message:   "Failed to get submission status",
-				Details:   grpcStatus.Message(),
-			},
-		})
-		return
-	}
-
-	if resp.Submission == nil || resp.Submission.Id == "" {
-		ctx.JSON(http.StatusNotFound, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusNotFound,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_NOT_FOUND,
-				Code:      http.StatusNotFound,
-				Message:   "Submission not found",
-				Details:   "Submission data is missing or invalid",
-			},
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp.Submission,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) GetChallengeSubmissions(ctx *gin.Context) {
-	var req problemPB.GetChallengeSubmissionsRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	req.ChallengeId = ctx.Query("challenge_id")
-	if req.ChallengeId == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_REQUEST,
-				Code:      http.StatusBadRequest,
-				Message:   "Invalid request",
-				Details:   "challenge_id is required",
-			},
-		})
-		return
-	}
-
-	resp, err := c.problemClient.GetChallengeSubmissions(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      httpCode,
-				Message:   "Failed to get challenge submissions",
-				Details:   grpcStatus.Message(),
-			},
-		})
-		return
-	}
-
-	if resp.Submissions == nil {
-		ctx.JSON(http.StatusNotFound, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusNotFound,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_NOT_FOUND,
-				Code:      http.StatusNotFound,
-				Message:   "No submissions found",
-				Details:   "Submissions data is missing",
-			},
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp.Submissions,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) GetUserStats(ctx *gin.Context) {
-	var req problemPB.GetUserStatsRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	req.UserId = ctx.Query("user_id")
-	if req.UserId == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_REQUEST,
-				Code:      http.StatusBadRequest,
-				Message:   "Invalid request",
-				Details:   "user_id is required",
-			},
-		})
-		return
-	}
-
-	resp, err := c.problemClient.GetUserStats(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      httpCode,
-				Message:   "Failed to get user stats",
-				Details:   grpcStatus.Message(),
-			},
-		})
-		return
-	}
-
-	if resp.Stats == nil || resp.Stats.UserId == "" {
-		ctx.JSON(http.StatusNotFound, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusNotFound,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_NOT_FOUND,
-				Code:      http.StatusNotFound,
-				Message:   "User stats not found",
-				Details:   "Stats data is missing or invalid",
-			},
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp.Stats,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) GetChallengeUserStats(ctx *gin.Context) {
-	var req problemPB.GetChallengeUserStatsRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
-
-	req.ChallengeId = ctx.Query("challenge_id")
-	req.UserId = ctx.Query("user_id")
-	if req.ChallengeId == "" || req.UserId == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_REQUEST,
-				Code:      http.StatusBadRequest,
-				Message:   "Invalid request",
-				Details:   "challenge_id and user_id are required",
-			},
-		})
-		return
-	}
-
-	resp, err := c.problemClient.GetChallengeUserStats(ctx.Request.Context(), &req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      httpCode,
-				Message:   "Failed to get challenge user stats",
-				Details:   grpcStatus.Message(),
-			},
-		})
-		return
-	}
-
-	if resp.UserId == "" {
-		ctx.JSON(http.StatusNotFound, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusNotFound,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_NOT_FOUND,
-				Code:      http.StatusNotFound,
-				Message:   "Challenge user stats not found",
-				Details:   "User stats data is missing or invalid",
-			},
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: resp,
-		Error:   nil,
-	})
-}
-
-func (c *ChallengeController) GetUserChallengeHistory(ctx *gin.Context) {
-	// Extract query parameters
-	pageStr := ctx.Query("page")
-	isPrivate := ctx.Query("is_private")
-	pageSizeStr := ctx.Query("page_size")
-
-	userIDIntr, _ := ctx.Get(middleware.EntityIDKey)
-	userID, _ := userIDIntr.(string)
-
-	// Validate user_id
+func (c *ChallengeController) GetPrivateChallengesOfUser(ctx *gin.Context) {
+	userID := ctx.Query("user_id")
 	if userID == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
-			Success: false,
-			Status:  http.StatusBadRequest,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_INVALID_REQUEST,
-				Code:      http.StatusBadRequest,
-				Message:   "Missing required field: user_id",
-				Details:   "The user_id query parameter is required",
-			},
-		})
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "user_id required"}})
 		return
 	}
 
-	// Parse pagination parameters
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		page = 1 // Default to page 1
-	}
-	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 {
-		pageSize = 10 // Default to 10 items per page
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+
+	req := &challengePB.PrivateChallengesRequest{
+		UserId: userID,
+		Pagination: &challengePB.PaginationRequest{
+			Page:     int32(page),
+			PageSize: int32(pageSize),
+		},
 	}
 
-	private := false
-	if isPrivate == "true" {
-		private = true
-	}
-
-	// Prepare gRPC request
-	grpcReq := &problemPB.GetChallengeHistoryRequest{
-		UserId:    userID,
-		Page:      int32(page),
-		PageSize:  int32(pageSize),
-		IsPrivate: &private,
-		TraceID:   GetTraceID(&ctx.Request.Header),
-	}
-
-	// Call gRPC service
-	resp, err := c.problemClient.GetChallengeHistory(ctx.Request.Context(), grpcReq)
+	resp, err := c.challengeClient.GetPrivateChallengesOfUser(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		httpCode := http.StatusInternalServerError
-		if grpcStatus.Code() == codes.InvalidArgument {
-			httpCode = http.StatusBadRequest
-		} else if grpcStatus.Code() == codes.NotFound {
-			httpCode = http.StatusNotFound
-		}
-		ctx.JSON(httpCode, model.GenericResponse{
-			Success: false,
-			Status:  httpCode,
-			Payload: nil,
-			Error: &model.ErrorInfo{
-				ErrorType: customerrors.ERR_GRPC_ERROR,
-				Code:      httpCode,
-				Message:   "Failed to fetch challenge history",
-				Details:   grpcStatus.Message(),
-			},
-		})
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})
 		return
 	}
 
-	// Successful response
-	ctx.JSON(http.StatusOK, model.GenericResponse{
-		Success: true,
-		Status:  http.StatusOK,
-		Payload: map[string]interface{}{
-			"challenges":  resp.Challenges,
-			"total_count": resp.TotalCount,
-			"page":        resp.Page,
-			"page_size":   resp.PageSize,
-			"message":     "",
+	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
+}
+
+func (c *ChallengeController) GetActiveChallenges(ctx *gin.Context) {
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+
+	req := &challengePB.PaginationRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+
+	resp, err := c.challengeClient.GetActiveChallenges(ctx.Request.Context(), req)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
+}
+
+func (c *ChallengeController) GetUserChallenges(ctx *gin.Context) {
+	userID := ctx.Query("user_id")
+	if userID == "" {
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "user_id required"}})
+		return
+	}
+
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+
+	req := &challengePB.UserChallengesRequest{
+		UserId: userID,
+		Pagination: &challengePB.PaginationRequest{
+			Page:     int32(page),
+			PageSize: int32(pageSize),
 		},
-		Error: nil,
-	})
+	}
+
+	resp, err := c.challengeClient.GetUserChallenges(ctx.Request.Context(), req)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
+}
+
+func (c *ChallengeController) PushSubmissionStatus(ctx *gin.Context) {
+	var req challengePB.PushSubmissionStatusRequest
+	req.TraceId = GetTraceID(&ctx.Request.Header)
+
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.ChallengeId == "" || req.UserId == "" || req.ProblemId == "" || req.Status == "" || req.SubmissionId == "" {
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "Missing required fields or invalid JSON"}})
+		return
+	}
+
+	resp, err := c.challengeClient.PushSubmissionStatus(ctx.Request.Context(), &req)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
 }
