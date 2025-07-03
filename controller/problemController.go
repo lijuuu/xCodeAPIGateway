@@ -1743,3 +1743,34 @@ func (u *ProblemController) RandomProblemIDsGenWithDifficultyRatio(c *gin.Contex
 		},
 	})
 }
+
+func (u *ProblemController) ProblemCountMetadata(c *gin.Context) {
+
+	resp, err := u.problemClient.ProblemCountMetadata(c.Request.Context(), &problemPB.ProblemCountMetadataRequest{})
+	if err != nil {
+		c.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_NOT_FOUND,
+				Code:      http.StatusNotFound,
+				Message:   err.Error(),
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "ProblemCountMetadata fetched successfully",
+			Details:   "ProblemCountMetadata fetched successfully",
+		},
+	})
+}

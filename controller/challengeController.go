@@ -64,6 +64,8 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 	// generate challenge id
 	req.ChallengeId = uuid.New().String()
 
+	req.CreatedAt = time.Now().Unix()
+
 	// get creator id from context
 	userID, ok := middleware.GetEntityID(ctx)
 	if !ok || userID == "" {
@@ -82,7 +84,7 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 
 	// set default status
 	if req.Status == "" {
-		req.Status = "pending"
+		req.Status = model.ChallengeOpen
 	}
 
 	// enforce min time limit
@@ -102,7 +104,7 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 	}
 
 	// if user provided problem ids, verify them
-	if len(req.ProcessedProblemIds) > 0 {
+	if len(req.ProcessedProblemIds) > 0 && len(req.ProcessedProblemIds) <= 10 {
 		_, err := c.problemClient.VerifyProblemExistenceBulk(ctx, &problemPB.VerifyProblemExistenceBulkRequest{
 			ProblemIds: req.ProcessedProblemIds,
 		})
@@ -114,7 +116,7 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 				Error: &model.ErrorInfo{
 					ErrorType: "grpc_error",
 					Code:      http.StatusBadRequest,
-					Message:   "some problems do not exist",
+					Message:   "some problems do not exist or problem threshold reached",
 					Details:   grpcStatus.Message(),
 				},
 			})
@@ -134,7 +136,7 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 				Hard:   req.Config.MaxHardQuestions,
 			},
 		})
-		if err != nil {
+		if err != nil || resp.ErrorType == "INSUFFICIENT_PROBLEMS" {
 			grpcStatus, _ := status.FromError(err)
 			ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
 				Success: false,
@@ -142,7 +144,7 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 				Error: &model.ErrorInfo{
 					ErrorType: "grpc_error",
 					Code:      http.StatusInternalServerError,
-					Message:   "failed to generate problems",
+					Message:   "failed to generate problems : " + resp.ErrorType,
 					Details:   grpcStatus.Message(),
 				},
 			})
@@ -176,15 +178,15 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 	})
 }
 
-func (c *ChallengeController) GetPublicChallenges(ctx *gin.Context) {
+func (c *ChallengeController) GetActiveOpenChallenges(ctx *gin.Context) {
 	req := &challengePB.PaginationRequest{}
 
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
 	req.Page = int32(page)
 	req.PageSize = int32(pageSize)
 
-	resp, err := c.challengeClient.GetPublicChallenges(ctx.Request.Context(), req)
+	resp, err := c.challengeClient.GetActiveOpenChallenges(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
@@ -198,25 +200,77 @@ func (c *ChallengeController) GetPublicChallenges(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
 }
 
-func (c *ChallengeController) GetPrivateChallengesOfUser(ctx *gin.Context) {
-	userID := ctx.Query("user_id")
+func (c *ChallengeController) AbandonChallenge(ctx *gin.Context) {
+	var req struct {
+		CreatorId   string `json:"creatorId"`
+		ChallengeId string `json:"challengeId"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.CreatorId == "" || req.ChallengeId == "" {
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "invalid request: missing creatorId or challengeId",
+			},
+		})
+		return
+	}
+
+	grpcReq := &challengePB.AbandonChallengeRequest{
+		CreatorId:   req.CreatorId,
+		ChallengeId: req.ChallengeId,
+	}
+
+	resp, err := c.challengeClient.AbandonChallenge(ctx.Request.Context(), grpcReq)
+	if err != nil {
+		grpcStatus, _ := status.FromError(err)
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusInternalServerError,
+			Error: &model.ErrorInfo{
+				ErrorType: "grpc_error",
+				Code:      http.StatusInternalServerError,
+				Message:   grpcStatus.Message(),
+			},
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+	})
+}
+
+func (c *ChallengeController) GetChallengeHistory(ctx *gin.Context) {
+	userID, _ := middleware.GetEntityID(ctx)
 	if userID == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "user_id required"}})
+		ctx.JSON(http.StatusBadRequest, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "unauthorized request, check your token"}})
 		return
 	}
 
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
+	isPrivateStr := ctx.DefaultQuery("isPrivate", "true")
+	isPrivate := false
+	if isPrivateStr == "true" {
+		isPrivate = true
+	} //default to isPrivate false get public history unless specified.
 
-	req := &challengePB.PrivateChallengesRequest{
+	req := &challengePB.GetChallengeHistoryRequest{
 		UserId: userID,
 		Pagination: &challengePB.PaginationRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 		},
+		IsPrivate: isPrivate,
 	}
 
-	resp, err := c.challengeClient.GetPrivateChallengesOfUser(ctx.Request.Context(), req)
+	resp, err := c.challengeClient.GetChallengeHistory(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})
@@ -226,44 +280,26 @@ func (c *ChallengeController) GetPrivateChallengesOfUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
 }
 
-func (c *ChallengeController) GetActiveChallenges(ctx *gin.Context) {
-	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+func (c *ChallengeController) GetOwnersActiveChallenges(ctx *gin.Context) {
 
-	req := &challengePB.PaginationRequest{
-		Page:     int32(page),
-		PageSize: int32(pageSize),
-	}
-
-	resp, err := c.challengeClient.GetActiveChallenges(ctx.Request.Context(), req)
-	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, model.GenericResponse{Success: true, Status: http.StatusOK, Payload: resp})
-}
-
-func (c *ChallengeController) GetUserChallenges(ctx *gin.Context) {
-	userID := ctx.Query("user_id")
-	if userID == "" {
-		ctx.JSON(http.StatusBadRequest, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "user_id required"}})
+	userID, ok := ctx.Get(middleware.EntityIDKey)
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusBadRequest, Error: &model.ErrorInfo{Message: "unauthorized request"}})
 		return
 	}
 
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
 
-	req := &challengePB.UserChallengesRequest{
-		UserId: userID,
+	req := &challengePB.GetOwnersActiveChallengesRequest{
+		UserId: userID.(string),
 		Pagination: &challengePB.PaginationRequest{
 			Page:     int32(page),
 			PageSize: int32(pageSize),
 		},
 	}
 
-	resp, err := c.challengeClient.GetUserChallenges(ctx.Request.Context(), req)
+	resp, err := c.challengeClient.GetOwnersActiveChallenges(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})

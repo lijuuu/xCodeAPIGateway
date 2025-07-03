@@ -9,9 +9,8 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
-	github.com/hashicorp/go-uuid v1.0.3
 	github.com/joho/godotenv v1.5.1
-	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250630162149-f8816db95d09
+	github.com/lijuuu/GlobalProtoXcode v0.0.0-20250703052621-60ac1a46d99b
 	github.com/nats-io/nats.go v1.39.1
 	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/zap v1.27.0

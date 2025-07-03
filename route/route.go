@@ -26,7 +26,7 @@ func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecr
 	UserController := controller.NewUserController(UserClient, ProblemClient)
 	CompilerController := controller.NewCompilerController(NatsClient)
 	ProblemController := controller.NewProblemController(ProblemClient, UserClient)
-	ChallengeController := controller.NewChallengeController(ChallengeClient,ProblemClient)
+	ChallengeController := controller.NewChallengeController(ChallengeClient, ProblemClient)
 
 	ApiV1 := Router.Group("/api/v1")
 	SetUpPublicAuthRoutes(ApiV1, UserController)
@@ -199,7 +199,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		ProblemsPublic.GET("/leaderboard/top10/entity", ProblemController.GetTopKEntityController)
 		// http://localhost:7000/api/v1/problems/languages
 		ProblemsPublic.GET("/languages", ProblemController.GetLanguageSupportsHandler)
-		// http://localhost:7000/api/v1/problems/metadata/bulk - queryarray [problem_ids]
+		// http://localhost:7000/api/v1/problems/bulk/metadata - queryarray [problem_ids]
 		ProblemsPublic.GET("/bulk/metadata", ProblemController.GetBulkProblemMetadata)
 		// http://localhost:7000/api/v1/problems/execute
 		ProblemsPublic.POST("/execute", ProblemController.RunUserCodeProblemHandler)
@@ -217,6 +217,9 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		ProblemsPublic.POST("/verify/bulk", ProblemController.VerifyProblemExistenceBulk)
 		// http://localhost:7000/api/v1/problems/random
 		ProblemsPublic.GET("/random", ProblemController.RandomProblemIDsGenWithDifficultyRatio)
+
+		//http://localhost:7000/api/v1/problems/count
+		ProblemsPublic.GET("/count", ProblemController.ProblemCountMetadata)
 	}
 	// http://localhost:7000/api/v1/problems (protected)
 	ProblemsPrivate := Problems.Group("")
@@ -254,20 +257,29 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 }
 
 // TODO: migrate to challenge service
-func SetUpChallengeRoutes(ApiV1 *gin.RouterGroup, ChallengeController *controller.ChallengeController, UserController *controller.UserController, JWTSecret string) {
-	// http://localhost:7000/api/v1/challenges
-	Challenges := ApiV1.Group("/")
-	Challenges.Use(
-		middleware.JWTAuthMiddleware(JWTSecret),
+func SetUpChallengeRoutes(apiV1 *gin.RouterGroup, challengeController *controller.ChallengeController, userController *controller.UserController, jwtSecret string) {
+	// route group for /api/v1/challenges
+	challenges := apiV1.Group("/challenges")
+
+	// protected routes
+	challengesPrivate := challenges.Group("")
+	challengesPrivate.Use(
+		middleware.JWTAuthMiddleware(jwtSecret),
 		middleware.RoleAuthMiddleware(middleware.RoleUser, middleware.RoleAdmin),
-		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
+		middleware.UserBanCheckMiddleware(userController.GetUserClient()),
 	)
 	{
-		// http://localhost:7000/api/v1/challenges
-		Challenges.POST("/challenges", ChallengeController.CreateChallenge)
-		// http://localhost:7000/api/v1/challenges/public/open
-		Challenges.GET("/public/open", ChallengeController.GetPublicChallenges)
-		// http://localhost:7000/api/v1/challenges/private
-		Challenges.GET("/private", ChallengeController.GetPrivateChallengesOfUser)
+		// POST /api/v1/challenges/
+		challengesPrivate.POST("", challengeController.CreateChallenge)
+		// POST /api/v1/challenges/abandon
+		challengesPrivate.POST("/abandon", challengeController.AbandonChallenge)
+		// GET /api/v1/challenges/history
+		challengesPrivate.GET("/history", challengeController.GetChallengeHistory)
+
+		//GetOwnersActiveChallenges
+		challengesPrivate.GET("/owner/open", challengeController.GetOwnersActiveChallenges)
 	}
+
+	// GET /api/v1/challenges/public/open?page=1&page_size=10&is_private=false
+	challenges.GET("/public/open", challengeController.GetActiveOpenChallenges) //page page_size
 }

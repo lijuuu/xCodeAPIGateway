@@ -19,7 +19,6 @@ type ClientConnections struct {
 }
 
 func InitClients(config *config.Config) (*ClientConnections, error) {
-
 	// Connect to Problem gRPC service
 	targetProblem := config.ProblemGRPCURL
 	log.Println("Target ProblemGRPC URL ", targetProblem)
