@@ -6,7 +6,7 @@ import (
 
 // UserProfile represents a user's profile information
 type UserProfile struct {
-	UserID                  string                  `json:"userID"`
+	UserID                  string                  `json:"userId"`
 	UserName                string                  `json:"userName"`
 	FirstName               string                  `json:"firstName"`
 	LastName                string                  `json:"lastName"`
@@ -40,8 +40,8 @@ type ProblemSolvedStatsCount struct {
 
 // to add new problem submission entry that is unique and first, this is used for leaderboard querying, Need- inorder to do faster query we cut down the struct and store this in another place.
 type ProblemDone struct {
-	UserID      string    `json:"userId" bson:"user_id"`
-	ProblemID   string    `json:"problemId" bson:"problem_id"`
+	UserID      string    `json:"userId" bson:"userId"`
+	ProblemID   string    `json:"problemId" bson:"problemId"`
 	Title       string    `json:"title" bson:"title"`
 	Language    string    `json:"language" bson:"language"`
 	Difficulty  string    `json:"difficulty" bson:"difficulty"`
@@ -54,8 +54,8 @@ type SubmissionHistoryResponse struct {
 
 type Submission struct {
 	ID            string    `json:"id" bson:"id"`
-	UserID        string    `json:"userId" bson:"user_id"`
-	ProblemID     string    `json:"problemId" bson:"problem_id"`
+	UserID        string    `json:"userId" bson:"userId"`
+	ProblemID     string    `json:"problemId" bson:"problemId"`
 	ChallengeID   string    `json:"challengeId,omitempty" bson:"challenge_id"`
 	SubmittedAt   time.Time `json:"submittedAt" bson:"submitted_at"`
 	Status        string    `json:"status" bson:"status"`
@@ -72,7 +72,7 @@ type Submission struct {
 // BanHistory represents a single ban record
 type BanHistory struct {
 	ID        string `json:"id"`
-	UserID    string `json:"userID"`
+	UserID    string `json:"userId"`
 	BannedAt  int64  `json:"bannedAt"`
 	BanType   string `json:"banType"`
 	BanReason string `json:"banReason"`
@@ -81,7 +81,7 @@ type BanHistory struct {
 
 // Response structs for each handler
 type RegisterUserResponse struct {
-	UserID       string      `json:"userID"`
+	UserID       string      `json:"userId"`
 	AccessToken  string      `json:"accessToken"`
 	RefreshToken string      `json:"refreshToken"`
 	ExpiresIn    int32       `json:"expiresIn"`
@@ -93,7 +93,7 @@ type LoginUserResponse struct {
 	AccessToken  string      `json:"accessToken"`
 	RefreshToken string      `json:"refreshToken"`
 	ExpiresIn    int32       `json:"expiresIn"`
-	UserID       string      `json:"userID"`
+	UserID       string      `json:"userId"`
 	UserProfile  UserProfile `json:"userProfile"`
 	Message      string      `json:"message"`
 }
@@ -109,7 +109,7 @@ type LoginAdminResponse struct {
 type TokenRefreshResponse struct {
 	AccessToken string `json:"accessToken"`
 	ExpiresIn   int32  `json:"expiresIn"`
-	UserID      string `json:"userID"`
+	UserID      string `json:"userId"`
 	Message     string `json:"message"`
 }
 
@@ -188,7 +188,7 @@ type GetFollowersResponse struct {
 }
 
 type CreateUserAdminResponse struct {
-	UserID  string `json:"userID"`
+	UserID  string `json:"userId"`
 	Message string `json:"message"`
 }
 

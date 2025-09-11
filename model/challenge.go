@@ -19,7 +19,7 @@ type Challenge struct {
 	IsPrivate           bool                           `bson:"is_private"`
 	Status              string                         `bson:"status"`
 	Password            string                         `bson:"password"` // Only for private challenges
-	ProblemIDs          []string                       `bson:"problem_ids"`
+	ProblemIDs          []string                       `bson:"problemIds"`
 	TimeLimit           int32                          `bson:"time_limit"`
 	CreatedAt           int64                          `bson:"created_at"`
 	IsActive            bool                           `bson:"is_active"`
@@ -31,7 +31,7 @@ type Challenge struct {
 
 // ChallengeProblemMetadata represents metadata for a problem in a challenge
 type ChallengeProblemMetadata struct {
-	ProblemID   string `bson:"problem_id"`
+	ProblemID   string `bson:"problemId"`
 	Score       int32  `bson:"score"`
 	TimeTaken   int64  `bson:"time_taken"`
 	CompletedAt int64  `bson:"completed_at"`
@@ -44,7 +44,7 @@ type ProblemMetadataList struct {
 
 // LeaderboardEntry represents a single entry in the leaderboard
 type LeaderboardEntry struct {
-	UserID            string `bson:"user_id"`
+	UserID            string `bson:"userId"`
 	ProblemsCompleted int32  `bson:"problems_completed"`
 	TotalScore        int32  `bson:"total_score"`
 	Rank              int32  `bson:"rank"`
@@ -52,7 +52,7 @@ type LeaderboardEntry struct {
 
 // UserStats represents user statistics across challenges
 type UserStats struct {
-	UserID              string                   `bson:"user_id"`
+	UserID              string                   `bson:"userId"`
 	ProblemsCompleted   int32                    `bson:"problems_completed"`
 	TotalTimeTaken      int64                    `bson:"total_time_taken"`
 	ChallengesCompleted int32                    `bson:"challenges_completed"`
@@ -73,7 +73,7 @@ type CreateChallengeRequest struct {
 	CreatorID  string    `bson:"creator_id"`
 	Difficulty string    `bson:"difficulty"`
 	IsPrivate  bool      `bson:"is_private"`
-	ProblemIDs []string  `bson:"problem_ids"`
+	ProblemIDs []string  `bson:"problemIds"`
 	TimeLimit  int32     `bson:"time_limit"`
 	StartAt    time.Time `bson:"start_at"`
 }
@@ -88,7 +88,7 @@ type CreateChallengeResponse struct {
 // GetChallengeDetailsRequest represents the request to get challenge details
 type GetChallengeDetailsRequest struct {
 	ID     string `bson:"id"`
-	UserID string `bson:"user_id"`
+	UserID string `bson:"userId"`
 }
 
 // GetChallengeDetailsResponse represents the response for getting challenge details
@@ -104,7 +104,7 @@ type GetPublicChallengesRequest struct {
 	IsActive       bool   `bson:"is_active"`
 	Page           int32  `bson:"page"`
 	PageSize       int32  `bson:"page_size"`
-	UserID         string `bson:"user_id"`
+	UserID         string `bson:"userId"`
 	IncludePrivate bool   `bson:"include_private"`
 }
 
@@ -116,7 +116,7 @@ type GetPublicChallengesResponse struct {
 // JoinChallengeRequest represents the request to join a challenge
 type JoinChallengeRequest struct {
 	ChallengeID string  `bson:"challenge_id"`
-	UserID      string  `bson:"user_id"`
+	UserID      string  `bson:"userId"`
 	Password    *string `bson:"password"` // Optional, required for private challenges
 }
 
@@ -130,7 +130,7 @@ type JoinChallengeResponse struct {
 // StartChallengeRequest represents the request to start a challenge
 type StartChallengeRequest struct {
 	ChallengeID string `bson:"challenge_id"`
-	UserID      string `bson:"user_id"`
+	UserID      string `bson:"userId"`
 }
 
 // StartChallengeResponse represents the response for starting a challenge
@@ -142,7 +142,7 @@ type StartChallengeResponse struct {
 // EndChallengeRequest represents the request to end a challenge
 type EndChallengeRequest struct {
 	ChallengeID string `bson:"challenge_id"`
-	UserID      string `bson:"user_id"`
+	UserID      string `bson:"userId"`
 }
 
 // EndChallengeResponse represents the response for ending a challenge
@@ -173,7 +173,7 @@ type GetChallengeSubmissionsResponse struct {
 
 // GetUserStatsRequest represents the request to get user stats
 type GetUserStatsRequest struct {
-	UserID string `bson:"user_id"`
+	UserID string `bson:"userId"`
 }
 
 // GetUserStatsResponse represents the response for getting user stats
@@ -184,12 +184,12 @@ type GetUserStatsResponse struct {
 // GetChallengeUserStatsRequest represents the request to get challenge-specific user stats
 type GetChallengeUserStatsRequest struct {
 	ChallengeID string `bson:"challenge_id"`
-	UserID      string `bson:"user_id"`
+	UserID      string `bson:"userId"`
 }
 
 // GetChallengeUserStatsResponse represents the response for getting challenge-specific user stats
 type GetChallengeUserStatsResponse struct {
-	UserID                   string                     `bson:"user_id"`
+	UserID                   string                     `bson:"userId"`
 	ProblemsCompleted        int32                      `bson:"problems_completed"`
 	TotalScore               int32                      `bson:"total_score"`
 	Rank                     int32                      `bson:"rank"`

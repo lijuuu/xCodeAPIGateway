@@ -117,7 +117,7 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 		Email:           req.Email,
 		Password:        req.Password,
 		ConfirmPassword: req.ConfirmPassword,
-		TraceID:         GetTraceID(&c.Request.Header),
+		TraceId:         GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.RegisterUser(c.Request.Context(), registerUserRequest)
@@ -144,7 +144,7 @@ func (uc *UserController) RegisterUserHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.RegisterUserResponse{
-			UserID:       resp.UserID,
+			UserID:       resp.UserId,
 			AccessToken:  resp.AccessToken,
 			RefreshToken: resp.RefreshToken,
 			ExpiresIn:    resp.ExpiresIn,
@@ -176,7 +176,7 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 		Email:         req.Email,
 		Password:      req.Password,
 		TwoFactorCode: req.Code,
-		TraceID:       GetTraceID(&c.Request.Header),
+		TraceId:       GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.LoginUser(c.Request.Context(), loginUserRequest)
@@ -206,7 +206,7 @@ func (uc *UserController) LoginUserHandler(c *gin.Context) {
 			AccessToken:  resp.AccessToken,
 			RefreshToken: resp.RefreshToken,
 			ExpiresIn:    resp.ExpiresIn,
-			UserID:       resp.UserID,
+			UserID:       resp.UserId,
 			UserProfile:  mapUserProfileHelper(resp.UserProfile),
 			Message:      resp.Message,
 		},
@@ -264,12 +264,12 @@ func (uc *UserController) GoogleLoginCallback(c *gin.Context) {
 
 	// Redirect the user to the frontend URL with tokens in query parameters
 	config := configs.LoadConfig()
-	redirectURL := fmt.Sprintf("%s?success=true&accessToken=%s&refreshToken=%s&expiresIn=%d&userID=%s",
+	redirectURL := fmt.Sprintf("%s?success=true&accessToken=%s&refreshToken=%s&expiresIn=%d&UserId=%s",
 		config.FrontendURL,
 		resp.AccessToken,
 		resp.RefreshToken,
 		resp.ExpiresIn,
-		resp.UserID,
+		resp.UserId,
 	)
 
 	c.Redirect(http.StatusFound, redirectURL)
@@ -295,7 +295,7 @@ func (uc *UserController) LoginAdminHandler(c *gin.Context) {
 	loginAdminRequest := &authUserAdminPB.LoginAdminRequest{
 		Email:    req.Email,
 		Password: req.Password,
-		TraceID:  GetTraceID(&c.Request.Header),
+		TraceId:  GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.LoginAdmin(c.Request.Context(), loginAdminRequest)
@@ -325,7 +325,7 @@ func (uc *UserController) LoginAdminHandler(c *gin.Context) {
 			AccessToken:  resp.AccessToken,
 			RefreshToken: resp.RefreshToken,
 			ExpiresIn:    resp.ExpiresIn,
-			AdminID:      resp.AdminID,
+			AdminID:      resp.AdminId,
 			Message:      resp.Message,
 		},
 		Error: nil,
@@ -351,7 +351,7 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 
 	tokenRefreshRequest := &authUserAdminPB.TokenRefreshRequest{
 		RefreshToken: req.RefreshToken,
-		TraceID:      GetTraceID(&c.Request.Header),
+		TraceId:      GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.TokenRefresh(c.Request.Context(), tokenRefreshRequest)
@@ -380,7 +380,7 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 		Payload: model.TokenRefreshResponse{
 			AccessToken: resp.AccessToken,
 			ExpiresIn:   resp.ExpiresIn,
-			UserID:      resp.UserID,
+			UserID:      resp.UserId,
 			Message:     resp.Message,
 		},
 		Error: nil,
@@ -388,7 +388,7 @@ func (uc *UserController) TokenRefreshHandler(c *gin.Context) {
 }
 
 func (uc *UserController) LogoutUserHandler(c *gin.Context) {
-	// userID, _ := c.Get(middleware.EntityIDKey)
+	// UserId, _ := c.Get(middleware.EntityIDKey)
 	jwtToken, _ := c.Get(middleware.JWTToken)
 
 	// Retrieve the cache from the context
@@ -450,7 +450,7 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 
 	resendEmailVerificationRequest := &authUserAdminPB.ResendEmailVerificationRequest{
 		Email:   email,
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.ResendEmailVerification(c.Request.Context(), resendEmailVerificationRequest)
@@ -484,9 +484,42 @@ func (uc *UserController) ResendEmailVerificationHandler(c *gin.Context) {
 	})
 }
 
-func (uc *UserController) VerifyUserHandler(c *gin.Context) {
+func (uc *UserController) CheckToken(c *gin.Context) {
+	UserId, ok := c.Get(middleware.EntityIDKey)
+	if UserId == "" || !ok {
+		c.JSON(http.StatusUnauthorized, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusUnauthorized,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: model.ErrAuthorizationTokenRequired,
+				Code:      http.StatusUnauthorized,
+				Message:   "unauthorized access",
+				Details:   "provide authorized token in the header",
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: map[string]interface{}{
+			"UserId": UserId,
+		},
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "token status: ok",
+			Details:   "token status: ok",
+		},
+	})
+
+}
+
+func (uc *UserController) VerifyUserHandlerAgainstEmail(c *gin.Context) {
 	email := c.Query("email")
-	token := c.Query("token")
+	token := c.Query("payload")
 	if email == "" || token == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -505,7 +538,7 @@ func (uc *UserController) VerifyUserHandler(c *gin.Context) {
 	verifyUserRequest := &authUserAdminPB.VerifyUserRequest{
 		Email:   email,
 		Token:   token,
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.VerifyUser(c.Request.Context(), verifyUserRequest)
@@ -571,7 +604,7 @@ func (uc *UserController) ForgotPasswordHandler(c *gin.Context) {
 
 	forgotPasswordRequest := &authUserAdminPB.ForgotPasswordRequest{
 		Email:   req.Email,
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.ForgotPassword(c.Request.Context(), forgotPasswordRequest)
@@ -627,7 +660,7 @@ func (uc *UserController) FinishForgotPasswordHandler(c *gin.Context) {
 		Token:           req.Token,
 		NewPassword:     req.NewPassword,
 		ConfirmPassword: req.ConfirmPassword,
-		TraceID:         GetTraceID(&c.Request.Header),
+		TraceId:         GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.FinishForgotPassword(c.Request.Context(), finishForgotPasswordRequest)
@@ -677,7 +710,7 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get(middleware.EntityIDKey)
+	UserId, _ := c.Get(middleware.EntityIDKey)
 
 	if req.OldPassword == req.NewPassword || req.NewPassword != req.ConfirmPassword {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -695,11 +728,11 @@ func (uc *UserController) ChangePasswordHandler(c *gin.Context) {
 	}
 
 	changePasswordRequest := &authUserAdminPB.ChangePasswordRequest{
-		UserID:          userID.(string),
+		UserId:          UserId.(string),
 		OldPassword:     req.OldPassword,
 		NewPassword:     req.NewPassword,
 		ConfirmPassword: req.ConfirmPassword,
-		TraceID:         GetTraceID(&c.Request.Header),
+		TraceId:         GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.ChangePassword(c.Request.Context(), changePasswordRequest)
@@ -750,7 +783,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get(middleware.EntityIDKey)
+	UserId, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
@@ -760,27 +793,27 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
 				Message:   "Failed to get user ID",
-				Details:   "userID is required",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	updateProfileRequest := &authUserAdminPB.UpdateProfileRequest{
-		UserID:            userID.(string),
+		UserId:            UserId.(string),
 		UserName:          req.UserName,
 		FirstName:         req.FirstName,
 		LastName:          req.LastName,
 		Country:           req.Country,
 		Bio:               req.Bio,
-		PrimaryLanguageID: req.PrimaryLanguageID,
+		PrimaryLanguageId: req.PrimaryLanguageID,
 		MuteNotifications: req.MuteNotifications,
 		Socials: &authUserAdminPB.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
 			Linkedin: req.Socials.Linkedin,
 		},
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	var forceChangeCountryLeaderboard bool
@@ -811,7 +844,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 	if forceChangeCountryLeaderboard {
 		uc.problemClient.ForceChangeUserEntityInSubmission(context.Background(), &problemPB.ForceChangeUserEntityInSubmissionRequest{
 			Entity: req.Country,
-			UserId: userID.(string),
+			UserId: UserId.(string),
 		})
 	}
 
@@ -845,7 +878,7 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 		return
 	}
 
-	userID, exists := c.Get(middleware.EntityIDKey)
+	UserId, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
@@ -855,7 +888,7 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
 				Message:   "Failed to get user ID",
-				Details:   "userID is required",
+				Details:   "UserId is required",
 			},
 		})
 		return
@@ -864,9 +897,9 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 	avatarUrl, _ := utils.UploadToCloudinary(file)
 
 	updateProfileImageRequest := &authUserAdminPB.UpdateProfileImageRequest{
-		UserID:    userID.(string),
-		AvatarURL: avatarUrl,
-		TraceID:   GetTraceID(&c.Request.Header),
+		UserId:    UserId.(string),
+		AvatarUrl: avatarUrl,
+		TraceId:   GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UpdateProfileImage(c.Request.Context(), updateProfileImageRequest)
@@ -894,18 +927,18 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 		Status:  http.StatusOK,
 		Payload: model.UpdateProfileImageResponse{
 			Message:   resp.Message,
-			AvatarURL: resp.AvatarURL,
+			AvatarURL: resp.AvatarUrl,
 		},
 		Error: nil,
 	})
 }
 
 func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
-	userID, _ := c.Get(middleware.EntityIDKey)
+	UserId, _ := c.Get(middleware.EntityIDKey)
 
-	fmt.Println("userID ", userID)
+	fmt.Println("UserId ", UserId)
 
-	if userID == "" {
+	if UserId == "" {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusUnauthorized,
@@ -914,15 +947,15 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
 				Message:   "Failed to get user ID from context",
-				Details:   "userID is required",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	getUserProfileRequest := &authUserAdminPB.GetUserProfileRequest{
-		UserID:  userID.(string),
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId.(string),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
@@ -958,12 +991,9 @@ func (uc *UserController) GetUserProfileHandler(c *gin.Context) {
 
 func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 	userNameparams := c.Query("username")
-	userIDparams := c.Query("userid")
+	UserIdparams := c.Query("userid")
 
-	fmt.Println("useridparam ", userIDparams)
-	fmt.Println("usernameparam ", userNameparams)
-
-	if userNameparams == "" && userIDparams == "" {
+	if userNameparams == "" && UserIdparams == "" {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusUnauthorized,
@@ -979,9 +1009,9 @@ func (uc *UserController) GetUserProfilePublicHandler(c *gin.Context) {
 	}
 
 	getUserProfileRequest := &authUserAdminPB.GetUserProfileRequest{
-		UserID:   userIDparams,
+		UserId:   UserIdparams,
 		UserName: &userNameparams,
-		TraceID:  GetTraceID(&c.Request.Header),
+		TraceId:  GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetUserProfile(c.Request.Context(), getUserProfileRequest)
@@ -1033,8 +1063,8 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 	}
 
 	checkBanStatusRequest := &authUserAdminPB.CheckBanStatusRequest{
-		UserID:  req.UserID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  req.UserID,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.CheckBanStatus(c.Request.Context(), checkBanStatusRequest)
@@ -1072,9 +1102,9 @@ func (uc *UserController) CheckBanStatusHandler(c *gin.Context) {
 
 // Social Features
 func (uc *UserController) FollowUserHandler(c *gin.Context) {
-	followUserID := c.Query("followeeID")
-	fmt.Println("followUserID ", followUserID)
-	if followUserID == "" {
+	followUserId := c.Query("followeeID")
+	fmt.Println("followUserId ", followUserId)
+	if followUserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1082,14 +1112,14 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
-	userID, exists := c.Get(middleware.EntityIDKey)
+	UserId, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
@@ -1099,16 +1129,16 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
 				Message:   "Failed to get user ID from context",
-				Details:   "userID is required",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	followUserRequest := &authUserAdminPB.FollowUserRequest{
-		FolloweeID: followUserID,
-		FollowerID: userID.(string),
-		TraceID:    GetTraceID(&c.Request.Header),
+		FolloweeId: followUserId,
+		FollowerId: UserId.(string),
+		TraceId:    GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.FollowUser(c.Request.Context(), followUserRequest)
@@ -1142,8 +1172,8 @@ func (uc *UserController) FollowUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
-	unfollowUserID := c.Query("unfollowUserID")
-	if unfollowUserID == "" {
+	unfollowUserId := c.Query("unfollowUserId")
+	if unfollowUserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1151,14 +1181,14 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
-	userID, exists := c.Get(middleware.EntityIDKey)
+	UserId, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
@@ -1168,16 +1198,16 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
 				Message:   "Failed to get user ID from context",
-				Details:   "userID is required",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	unfollowUserRequest := &authUserAdminPB.UnfollowUserRequest{
-		FolloweeID: unfollowUserID,
-		FollowerID: userID.(string),
-		TraceID:    GetTraceID(&c.Request.Header),
+		FolloweeId: unfollowUserId,
+		FollowerId: UserId.(string),
+		TraceId:    GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UnfollowUser(c.Request.Context(), unfollowUserRequest)
@@ -1211,10 +1241,10 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetFollowingHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
-		if jwtUserID, exists := c.Get(middleware.EntityIDKey); exists {
-			userID = jwtUserID.(string)
+	UserId := c.Query("UserId")
+	if UserId == "" {
+		if jwtUserId, exists := c.Get(middleware.EntityIDKey); exists {
+			UserId = jwtUserId.(string)
 		} else {
 			c.JSON(http.StatusBadRequest, model.GenericResponse{
 				Success: false,
@@ -1223,8 +1253,8 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 				Error: &model.ErrorInfo{
 					ErrorType: customerrors.ERR_PARAM_EMPTY,
 					Code:      http.StatusBadRequest,
-					Message:   "Missing userID query parameter",
-					Details:   "userID is required",
+					Message:   "Missing UserId query parameter",
+					Details:   "UserId is required",
 				},
 			})
 			return
@@ -1232,8 +1262,8 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 	}
 
 	getFollowingRequest := &authUserAdminPB.GetFollowingRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetFollowing(c.Request.Context(), getFollowingRequest)
@@ -1270,10 +1300,10 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetFollowersHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
-		if jwtUserID, exists := c.Get(middleware.EntityIDKey); exists {
-			userID = jwtUserID.(string)
+	UserId := c.Query("UserId")
+	if UserId == "" {
+		if jwtUserId, exists := c.Get(middleware.EntityIDKey); exists {
+			UserId = jwtUserId.(string)
 		} else {
 			c.JSON(http.StatusBadRequest, model.GenericResponse{
 				Success: false,
@@ -1282,8 +1312,8 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 				Error: &model.ErrorInfo{
 					ErrorType: customerrors.ERR_PARAM_EMPTY,
 					Code:      http.StatusBadRequest,
-					Message:   "Missing userID query parameter",
-					Details:   "userID is required",
+					Message:   "Missing UserId query parameter",
+					Details:   "UserId is required",
 				},
 			})
 			return
@@ -1291,8 +1321,8 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 	}
 
 	getFollowersRequest := &authUserAdminPB.GetFollowersRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetFollowers(c.Request.Context(), getFollowersRequest)
@@ -1331,8 +1361,8 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 //
 
 func (uc *UserController) GetFollowFollowingCheckHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" {
 
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1341,20 +1371,20 @@ func (uc *UserController) GetFollowFollowingCheckHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 
 	}
 
-	ownerUserID, _ := c.Get(middleware.EntityIDKey)
+	ownerUserId, _ := c.Get(middleware.EntityIDKey)
 
 	GetFollowFollowingCheckRequest := &authUserAdminPB.GetFollowFollowingCheckRequest{
-		TargetUserID: userID,
-		OwnerUserID:  ownerUserID.(string),
-		TraceID:      GetTraceID(&c.Request.Header),
+		TargetUserId: UserId,
+		OwnerUserId:  ownerUserId.(string),
+		TraceId:      GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetFollowFollowingCheck(c.Request.Context(), GetFollowFollowingCheckRequest)
@@ -1411,7 +1441,7 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 		AuthType:        req.AuthType,
 		Password:        req.Password,
 		ConfirmPassword: req.ConfirmPassword,
-		TraceID:         GetTraceID(&c.Request.Header),
+		TraceId:         GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.CreateUserAdmin(c.Request.Context(), createUserAdminRequest)
@@ -1438,7 +1468,7 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: model.CreateUserAdminResponse{
-			UserID:  resp.UserID,
+			UserID:  resp.UserId,
 			Message: resp.Message,
 		},
 		Error: nil,
@@ -1446,8 +1476,8 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1455,8 +1485,8 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
@@ -1479,21 +1509,21 @@ func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
 	}
 
 	updateUserAdminRequest := &authUserAdminPB.UpdateUserAdminRequest{
-		UserID:            userID,
+		UserId:            UserId,
 		FirstName:         req.FirstName,
 		LastName:          req.LastName,
 		Country:           req.Country,
 		Role:              req.Role,
 		Email:             req.Email,
 		Password:          req.Password,
-		PrimaryLanguageID: req.PrimaryLanguageID,
+		PrimaryLanguageId: req.PrimaryLanguageID,
 		MuteNotifications: req.MuteNotifications,
 		Socials: &authUserAdminPB.Socials{
 			Github:   req.Socials.Github,
 			Twitter:  req.Socials.Twitter,
 			Linkedin: req.Socials.Linkedin,
 		},
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UpdateUserAdmin(c.Request.Context(), updateUserAdminRequest)
@@ -1544,11 +1574,11 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 	}
 
 	banUserRequest := &authUserAdminPB.BanUserRequest{
-		UserID:    req.UserID,
+		UserId:    req.UserID,
 		BanType:   req.BanType,
 		BanReason: req.BanReason,
 		BanExpiry: req.BanExpiry,
-		TraceID:   GetTraceID(&c.Request.Header),
+		TraceId:   GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.BanUser(c.Request.Context(), banUserRequest)
@@ -1581,8 +1611,8 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UnbanUserHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1590,16 +1620,16 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	unbanUserRequest := &authUserAdminPB.UnbanUserRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UnbanUser(c.Request.Context(), unbanUserRequest)
@@ -1633,8 +1663,8 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1642,16 +1672,16 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	verifyAdminUserRequest := &authUserAdminPB.VerifyAdminUserRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.VerifyAdminUser(c.Request.Context(), verifyAdminUserRequest)
@@ -1685,8 +1715,8 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1694,16 +1724,16 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	unverifyUserRequest := &authUserAdminPB.UnverifyUserAdminRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.UnverifyUser(c.Request.Context(), unverifyUserRequest)
@@ -1737,8 +1767,8 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
-	userID := c.Query("userID")
-	if userID == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1746,16 +1776,16 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
 	softDeleteUserAdminRequest := &authUserAdminPB.SoftDeleteUserAdminRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.SoftDeleteUserAdmin(c.Request.Context(), softDeleteUserAdminRequest)
@@ -1790,7 +1820,7 @@ func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
 
 func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 	getAllUsersRequest := &authUserAdminPB.GetAllUsersRequest{
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	//bind and parse params
@@ -1880,7 +1910,7 @@ func (uc *UserController) GetAllUsersHandler(c *gin.Context) {
 }
 
 func (uc *UserController) BanHistoryHandler(c *gin.Context) {
-	ctxUserID, exists := c.Get(middleware.EntityIDKey)
+	ctxUserId, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
@@ -1890,14 +1920,14 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 				ErrorType: customerrors.ERR_UNAUTHORIZED,
 				Code:      http.StatusUnauthorized,
 				Message:   "Failed to get user ID from context",
-				Details:   "userID is required",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
-	userID := c.Query("userID")
-	if userID == "" && ctxUserID.(string) == "" {
+	UserId := c.Query("UserId")
+	if UserId == "" && ctxUserId.(string) == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1905,20 +1935,20 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing userID query parameter",
-				Details:   "userID is required",
+				Message:   "Missing UserId query parameter",
+				Details:   "UserId is required",
 			},
 		})
 		return
 	}
 
-	if userID == "" {
-		userID = ctxUserID.(string)
+	if UserId == "" {
+		UserId = ctxUserId.(string)
 	}
 
 	banHistoryRequest := &authUserAdminPB.BanHistoryRequest{
-		UserID:  userID,
-		TraceID: GetTraceID(&c.Request.Header),
+		UserId:  UserId,
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.BanHistory(c.Request.Context(), banHistoryRequest)
@@ -1983,7 +2013,7 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 		Query:     query,
 		PageToken: pageToken,
 		Limit:     limit,
-		TraceID:   GetTraceID(&c.Request.Header),
+		TraceId:   GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.SearchUsers(c.Request.Context(), searchUsersRequest)
@@ -2021,8 +2051,8 @@ func (uc *UserController) SearchUsersHandler(c *gin.Context) {
 
 func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 	var req model.SetUpTwoFactorAuthRequest
-	userID, _ := c.Get(middleware.EntityIDKey)
-	req.UserID = userID.(string)
+	UserId, _ := c.Get(middleware.EntityIDKey)
+	req.UserID = UserId.(string)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -2039,9 +2069,9 @@ func (uc *UserController) SetUpTwoFactorAuthHandler(c *gin.Context) {
 	}
 
 	setUpTwoFactorAuthRequest := &authUserAdminPB.SetUpTwoFactorAuthRequest{
-		UserID:   req.UserID,
+		UserId:   req.UserID,
 		Password: req.Password,
-		TraceID:  GetTraceID(&c.Request.Header),
+		TraceId:  GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.SetUpTwoFactorAuth(c.Request.Context(), setUpTwoFactorAuthRequest)
@@ -2095,7 +2125,7 @@ func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 
 	getTwoFactorAuthStatusRequest := &authUserAdminPB.GetTwoFactorAuthStatusRequest{
 		Email:   email,
-		TraceID: GetTraceID(&c.Request.Header),
+		TraceId: GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.GetTwoFactorAuthStatus(c.Request.Context(), getTwoFactorAuthStatusRequest)
@@ -2130,8 +2160,8 @@ func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 }
 
 func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
-	// get userid from context
-	userID, exists := c.Get(middleware.EntityIDKey)
+	// get UserId from context
+	UserId, exists := c.Get(middleware.EntityIDKey)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, model.GenericResponse{
 			Success: false,
@@ -2169,9 +2199,9 @@ func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
 
 	// verify code
 	verifyRequest := &authUserAdminPB.VerifyTwoFactorAuthRequest{
-		UserID:        userID.(string),
+		UserId:        UserId.(string),
 		TwoFactorCode: req.TwoFactorCode,
-		TraceID:       GetTraceID(&c.Request.Header),
+		TraceId:       GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.VerifyTwoFactorAuth(c.Request.Context(), verifyRequest)
@@ -2208,8 +2238,8 @@ func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
 
 func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 	var req model.DisableTwoFactorAuthRequest
-	userID, _ := c.Get(middleware.EntityIDKey)
-	req.UserID = userID.(string)
+	UserId, _ := c.Get(middleware.EntityIDKey)
+	req.UserID = UserId.(string)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -2226,10 +2256,10 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 	}
 
 	deleteTwoFactorAuthRequest := &authUserAdminPB.DisableTwoFactorAuthRequest{
-		UserID:   req.UserID,
+		UserId:   req.UserID,
 		Password: req.Password,
 		Otp:      req.Otp,
-		TraceID:  GetTraceID(&c.Request.Header),
+		TraceId:  GetTraceId(&c.Request.Header),
 	}
 
 	resp, err := uc.userClient.DisableTwoFactorAuth(c.Request.Context(), deleteTwoFactorAuthRequest)
@@ -2262,6 +2292,57 @@ func (uc *UserController) DisableTwoFactorAuthHandler(c *gin.Context) {
 	})
 }
 
+func (uc *UserController) GetUsersMetadataBulkList(c *gin.Context) {
+	UserIds := c.QueryArray("userIds")
+	if len(UserIds) == 0 {
+		c.JSON(http.StatusBadRequest, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusBadRequest,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_INVALID_REQUEST,
+				Code:      http.StatusBadRequest,
+				Message:   "Missing fields, please ensure userIds are added as array",
+				Details:   "Missing fields, please ensure userIds are added as array, Example: ?userIds=prob1&userIds=prob2",
+			},
+		})
+		return
+	}
+
+	req := authUserAdminPB.GetBulkUserMetadataRequest{
+		UserIds: UserIds,
+	}
+
+	resp, err := uc.userClient.GetBulkUserMetadata(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusNotFound, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusNotFound,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: customerrors.ERR_NOT_FOUND,
+				Code:      http.StatusNotFound,
+				Message:   err.Error(),
+				Details:   err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.GenericResponse{
+		Success: true,
+		Status:  http.StatusOK,
+		Payload: resp,
+		Error: &model.ErrorInfo{
+			ErrorType: "",
+			Code:      http.StatusOK,
+			Message:   "bulk users metadata fetched successfully",
+			Details:   "bulk users metadata fetched successfully",
+		},
+	})
+
+}
+
 // Mapping functions remain unchanged
 func mapUserProfileHelper(protoProfile *authUserAdminPB.UserProfile) model.UserProfile {
 	if protoProfile == nil {
@@ -2280,17 +2361,17 @@ func mapUserProfileHelper(protoProfile *authUserAdminPB.UserProfile) model.UserP
 	}
 
 	return model.UserProfile{
-		UserID:            protoProfile.UserID,
+		UserID:            protoProfile.UserId,
 		UserName:          protoProfile.UserName,
 		FirstName:         protoProfile.FirstName,
 		LastName:          protoProfile.LastName,
-		AvatarURL:         protoProfile.AvatarData,
+		AvatarURL:         protoProfile.AvatarURL,
 		IsVerified:        protoProfile.IsVerified,
 		Email:             protoProfile.Email,
 		Bio:               protoProfile.Bio,
 		Role:              protoProfile.Role,
 		Country:           protoProfile.Country,
-		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
+		PrimaryLanguageID: protoProfile.PrimaryLanguageId,
 		MuteNotifications: protoProfile.MuteNotifications,
 		Socials:           socials,
 		CreatedAt:         protoProfile.CreatedAt,
@@ -2312,17 +2393,17 @@ func mapUserProfileForAdminsHelper(protoProfile *authUserAdminPB.UserProfile) mo
 	}
 
 	return model.UserProfile{
-		UserID:            protoProfile.UserID,
+		UserID:            protoProfile.UserId,
 		UserName:          protoProfile.UserName,
 		FirstName:         protoProfile.FirstName,
 		LastName:          protoProfile.LastName,
-		AvatarURL:         protoProfile.AvatarData,
+		AvatarURL:         protoProfile.AvatarURL,
 		IsVerified:        protoProfile.IsVerified,
 		Email:             protoProfile.Email,
 		Bio:               protoProfile.Bio,
 		Role:              protoProfile.Role,
 		Country:           protoProfile.Country,
-		PrimaryLanguageID: protoProfile.PrimaryLanguageID,
+		PrimaryLanguageID: protoProfile.PrimaryLanguageId,
 		MuteNotifications: protoProfile.MuteNotifications,
 		Socials:           socials,
 		CreatedAt:         protoProfile.CreatedAt,
@@ -2399,7 +2480,7 @@ func mapUserProfilesforAdmins(protoProfiles []*authUserAdminPB.UserProfile) []mo
 func mapBanHistory(protoBan *authUserAdminPB.BanHistory) model.BanHistory {
 	return model.BanHistory{
 		ID:        protoBan.Id,
-		UserID:    protoBan.UserID,
+		UserID:    protoBan.UserId,
 		BannedAt:  protoBan.BannedAt,
 		BanType:   protoBan.BanType,
 		BanReason: protoBan.BanReason,
@@ -2415,8 +2496,8 @@ func mapBanHistories(protoBans []*authUserAdminPB.BanHistory) []model.BanHistory
 	return bans
 }
 
-func GetTraceID(header *http.Header) string {
-	TraceID := header.Get("X-Trace-ID")
-	// fmt.Println(" TraceID ",TraceID)
-	return TraceID
+func GetTraceId(header *http.Header) string {
+	TraceId := header.Get("X-Trace-ID")
+	// fmt.Println(" TraceId ",TraceId)
+	return TraceId
 }

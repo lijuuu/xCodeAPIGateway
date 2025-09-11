@@ -61,29 +61,23 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 
 		// Determine log level based on response status
 		status := c.Writer.Status()
-		var level zapcore.Level
 		var levelStr string
 
 		switch {
 		case status >= 500:
 			// server errors
-			level = zapcore.ErrorLevel
 			levelStr = "ERROR"
 		case status >= 400:
 			// client errors
-			level = zapcore.WarnLevel
 			levelStr = "WARN"
 		case status >= 300:
 			// redirects
-			level = zapcore.InfoLevel
 			levelStr = "INFO"
 		case status >= 200:
 			// success
-			level = NoticeLevel
 			levelStr = "NOTICE"
 		default:
 			// unknown cases
-			level = zapcore.DebugLevel
 			levelStr = "DEBUG"
 		}
 
@@ -121,22 +115,20 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		}
 
 		if environment == "development" {
-			// Write to file and stdout in development
+			// Write to file only in development (avoid console writes)
 			fileMu.Lock()
 			_, err := fileWriter.Write(append(body, '\n'))
 			fileMu.Unlock()
 			if err != nil {
 				logger.Error("Failed to write log to file", zap.Error(err))
 			}
-			// Also log to zap for console
-			logger.Log(level, "HTTP request", zap.Any("attributes", entry.Attributes))
 			return
 		}
 
 		// Production: Send log to Better Stack
 		req, err := http.NewRequest("POST", BetterStackUploadURL, bytes.NewReader(body))
 		if err != nil {
-			logger.Error("Failed to create HTTP request", zap.Error(err))
+			// logger.Error("Failed to create HTTP request", zap.Error(err))
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")

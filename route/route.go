@@ -53,7 +53,7 @@ func SetUpPublicAuthRoutes(ApiV1 *gin.RouterGroup, UserController *controller.Us
 		// http://localhost:7000/api/v1/auth/token/refresh
 		Auth.POST("/token/refresh", UserController.TokenRefreshHandler)
 		// http://localhost:7000/api/v1/auth/verify
-		Auth.GET("/verify", UserController.VerifyUserHandler)
+		Auth.GET("/verify", UserController.VerifyUserHandlerAgainstEmail) //otp verification
 		// http://localhost:7000/api/v1/auth/verify/resend
 		Auth.GET("/verify/resend", UserController.ResendEmailVerificationHandler)
 		// http://localhost:7000/api/v1/auth/password/forgot
@@ -76,6 +76,9 @@ func SetUpProtectedUserRoutes(ApiV1 *gin.RouterGroup, UserController *controller
 		UsersPublic.GET("/public/profile", UserController.GetUserProfilePublicHandler)
 		// http://localhost:7000/api/v1/users/username/available
 		UsersPublic.GET("/username/available", UserController.UserAvailable)
+
+		//http://localhost:7000/api/v1/users/metadata/bulk
+		UsersPublic.GET("/metadata/bulk", UserController.GetUsersMetadataBulkList)
 	}
 	// http://localhost:7000/api/v1/users (protected)
 	UsersPrivate := Users.Group("")
@@ -84,6 +87,8 @@ func SetUpProtectedUserRoutes(ApiV1 *gin.RouterGroup, UserController *controller
 		middleware.RoleAuthMiddleware(middleware.RoleUser, middleware.RoleAdmin),
 		middleware.UserBanCheckMiddleware(UserController.GetUserClient()),
 	)
+
+	UsersPrivate.GET("/check-token", UserController.CheckToken)
 	{
 		// http://localhost:7000/api/v1/users/profile
 		Profile := UsersPrivate.Group("/profile")
@@ -199,8 +204,10 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		ProblemsPublic.GET("/leaderboard/top10/entity", ProblemController.GetTopKEntityController)
 		// http://localhost:7000/api/v1/problems/languages
 		ProblemsPublic.GET("/languages", ProblemController.GetLanguageSupportsHandler)
-		// http://localhost:7000/api/v1/problems/bulk/metadata - queryarray [problem_ids]
+
+		// http://localhost:7000/api/v1/problems/bulk/metadata - queryarray [problemIds]
 		ProblemsPublic.GET("/bulk/metadata", ProblemController.GetBulkProblemMetadata)
+
 		// http://localhost:7000/api/v1/problems/execute
 		ProblemsPublic.POST("/execute", ProblemController.RunUserCodeProblemHandler)
 		// http://localhost:7000/api/v1/problems/submission/history
@@ -214,6 +221,7 @@ func SetUpProblemRoutes(ApiV1 *gin.RouterGroup, ProblemController *controller.Pr
 		// http://localhost:7000/api/v1/problems/user/done
 		ProblemsPublic.GET("/user/done", ProblemController.ProblemIDsDoneByUserID)
 		// http://localhost:7000/api/v1/problems/verify/bulk
+
 		ProblemsPublic.POST("/verify/bulk", ProblemController.VerifyProblemExistenceBulk)
 		// http://localhost:7000/api/v1/problems/random
 		ProblemsPublic.GET("/random", ProblemController.RandomProblemIDsGenWithDifficultyRatio)

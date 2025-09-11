@@ -18,6 +18,10 @@ type ClientConnections struct {
 	ConnChallenge *grpc.ClientConn
 }
 
+//load balancing in grpc 
+//way1: we can implement app level lb using the grpc client itself that can automatically lb using any algos(default: round robin)
+//way2: dedicated lb server using nginx etc that can implement much more than just being an LB - (ratelimiting)
+
 func InitClients(config *config.Config) (*ClientConnections, error) {
 	// Connect to Problem gRPC service
 	targetProblem := config.ProblemGRPCURL

@@ -39,7 +39,6 @@ const (
 
 // JWTAuthMiddleware handles JWT authentication
 func JWTAuthMiddleware(jwtSecret string) gin.HandlerFunc {
-	fmt.Println("JWTAuthMiddleware ", jwtSecret)
 	logger := logrus.New()
 	return func(c *gin.Context) {
 		// Retrieve the cache from the context
@@ -234,7 +233,7 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 			return
 		}
 
-		userID, exists := GetEntityID(c)
+		userId, exists := GetEntityID(c)
 		if !exists {
 			c.JSON(http.StatusUnauthorized, model.GenericResponse{
 				Success: false,
@@ -254,10 +253,10 @@ func UserBanCheckMiddleware(userClient AuthUserAdminService.AuthUserAdminService
 		defer cancel()
 
 		// Pass the user ID in the RPC context
-		rpcCtx := context.WithValue(ctx, "USERID", userID)
+		rpcCtx := context.WithValue(ctx, "USERID", userId)
 
 		response, err := userClient.CheckBanStatus(rpcCtx, &AuthUserAdminService.CheckBanStatusRequest{
-			UserID: userID,
+			UserId: userId,
 		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, model.GenericResponse{
@@ -299,12 +298,12 @@ func GetEntityID(c *gin.Context) (string, bool) {
 	if !exists {
 		return "", false
 	}
-	userID, ok := id.(string)
+	userId, ok := id.(string)
 	if !ok {
 		logrus.Errorf("Invalid entity ID type in context: %v", id)
 		return "", false
 	}
-	return userID, true
+	return userId, true
 }
 
 // GetEntityRole retrieves the user role from the context

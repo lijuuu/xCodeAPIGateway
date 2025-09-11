@@ -29,7 +29,7 @@ func NewProblemController(problemClient problemPB.ProblemsServiceClient, userCli
 
 func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 	var req problemPB.CreateProblemRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -69,14 +69,14 @@ func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
-		Payload: map[string]interface{}{"problem_id": resp.ProblemId, "message": resp.Message},
+		Payload: map[string]interface{}{"problemId": resp.ProblemId, "message": resp.Message},
 		Error:   nil,
 	})
 }
 
 func (c *ProblemController) UpdateProblemHandler(ctx *gin.Context) {
 	var req problemPB.UpdateProblemRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -120,17 +120,17 @@ func (c *ProblemController) UpdateProblemHandler(ctx *gin.Context) {
 }
 
 func (c *ProblemController) DeleteProblemHandler(ctx *gin.Context) {
-	problemID := ctx.Query("problem_id")
-	if problemID == "" {
+	problemId := ctx.Query("problemId")
+	if problemId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problem_id", Details: "problem_id is required"},
+			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problemId", Details: "problemId is required"},
 		})
 		return
 	}
-	resp, err := c.problemClient.DeleteProblem(ctx.Request.Context(), &problemPB.DeleteProblemRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
+	resp, err := c.problemClient.DeleteProblem(ctx.Request.Context(), &problemPB.DeleteProblemRequest{ProblemId: problemId, TraceId: GetTraceId(&ctx.Request.Header)})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -163,17 +163,17 @@ func (c *ProblemController) DeleteProblemHandler(ctx *gin.Context) {
 }
 
 func (c *ProblemController) GetProblemHandler(ctx *gin.Context) {
-	problemID := ctx.Query("problem_id")
-	if problemID == "" {
+	problemId := ctx.Query("problemId")
+	if problemId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problem_id", Details: "problem_id is required"},
+			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problemId", Details: "problemId is required"},
 		})
 		return
 	}
-	resp, err := c.problemClient.GetProblem(ctx.Request.Context(), &problemPB.GetProblemRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
+	resp, err := c.problemClient.GetProblem(ctx.Request.Context(), &problemPB.GetProblemRequest{ProblemId: problemId, TraceId: GetTraceId(&ctx.Request.Header)})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -213,7 +213,7 @@ func (c *ProblemController) ListProblemsHandler(ctx *gin.Context) {
 	req.Tags = ctx.QueryArray("tags")
 	req.Difficulty = ctx.Query("difficulty")
 	req.SearchQuery = ctx.Query("search_query")
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	// if role, ok := ctx.Get(middleware.RoleKey); ok && role == middleware.RoleAdmin {
 	// 	req.IsAdmin = true
@@ -247,7 +247,7 @@ func (c *ProblemController) ListProblemsHandler(ctx *gin.Context) {
 
 func (c *ProblemController) AddTestCasesHandler(ctx *gin.Context) {
 	var req problemPB.AddTestCasesRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -292,7 +292,7 @@ func (c *ProblemController) AddTestCasesHandler(ctx *gin.Context) {
 
 func (c *ProblemController) DeleteTestCaseHandler(ctx *gin.Context) {
 	var req problemPB.DeleteTestCaseRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -308,7 +308,7 @@ func (c *ProblemController) DeleteTestCaseHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing required parameters", Details: "problem_id and testcase_id are required"},
+			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing required parameters", Details: "problemId and testcase_id are required"},
 		})
 		return
 	}
@@ -346,7 +346,7 @@ func (c *ProblemController) DeleteTestCaseHandler(ctx *gin.Context) {
 
 func (c *ProblemController) AddLanguageSupportHandler(ctx *gin.Context) {
 	var req problemPB.AddLanguageSupportRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -391,7 +391,7 @@ func (c *ProblemController) AddLanguageSupportHandler(ctx *gin.Context) {
 
 func (c *ProblemController) UpdateLanguageSupportHandler(ctx *gin.Context) {
 	var req problemPB.UpdateLanguageSupportRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -436,7 +436,7 @@ func (c *ProblemController) UpdateLanguageSupportHandler(ctx *gin.Context) {
 
 func (c *ProblemController) RemoveLanguageSupportHandler(ctx *gin.Context) {
 	var req problemPB.RemoveLanguageSupportRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -480,18 +480,18 @@ func (c *ProblemController) RemoveLanguageSupportHandler(ctx *gin.Context) {
 }
 
 func (c *ProblemController) FullValidationByProblemIDHandler(ctx *gin.Context) {
-	problemID := ctx.Query("problem_id")
-	if problemID == "" {
+	problemId := ctx.Query("problemId")
+	if problemId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problem_id", Details: "problem_id is required"},
+			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problemId", Details: "problemId is required"},
 		})
 		return
 	}
 
-	resp, err := c.problemClient.FullValidationByProblemID(ctx.Request.Context(), &problemPB.FullValidationByProblemIDRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
+	resp, err := c.problemClient.FullValidationByProblemId(ctx.Request.Context(), &problemPB.FullValidationByProblemIdRequest{ProblemId: problemId, TraceId: GetTraceId(&ctx.Request.Header)})
 	fmt.Println("API Controller Response:", resp, err) // Debug log
 
 	// Check if the response is nil
@@ -552,17 +552,17 @@ func (c *ProblemController) FullValidationByProblemIDHandler(ctx *gin.Context) {
 }
 
 func (c *ProblemController) GetLanguageSupportsHandler(ctx *gin.Context) {
-	problemID := ctx.Query("problem_id")
-	if problemID == "" {
+	problemId := ctx.Query("problemId")
+	if problemId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problem_id", Details: "problem_id is required"},
+			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problemId", Details: "problemId is required"},
 		})
 		return
 	}
-	resp, err := c.problemClient.GetLanguageSupports(ctx.Request.Context(), &problemPB.GetLanguageSupportsRequest{ProblemId: problemID, TraceID: GetTraceID(&ctx.Request.Header)})
+	resp, err := c.problemClient.GetLanguageSupports(ctx.Request.Context(), &problemPB.GetLanguageSupportsRequest{ProblemId: problemId, TraceId: GetTraceId(&ctx.Request.Header)})
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -599,25 +599,25 @@ func (c *ProblemController) GetLanguageSupportsHandler(ctx *gin.Context) {
 }
 
 func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
-	problemID := ctx.Query("problem_id")
+	problemId := ctx.Query("problemId")
 	slug := ctx.Query("slug")
-	if problemID == "" && slug == "" {
+	if problemId == "" && slug == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: nil,
-			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problem_id or slug", Details: "problem_id or slug is required"},
+			Error:   &model.ErrorInfo{ErrorType: customerrors.ERR_PARAM_EMPTY, Code: http.StatusBadRequest, Message: "Missing problemId or slug", Details: "problemId or slug is required"},
 		})
 		return
 	}
 	req := &problemPB.GetProblemByIdSlugRequest{
-		ProblemId: problemID,
-		TraceID:   GetTraceID(&ctx.Request.Header),
+		ProblemId: problemId,
+		TraceId:   GetTraceId(&ctx.Request.Header),
 	}
 	if slug != "" {
 		req.Slug = &slug
 	}
-	resp, err := c.problemClient.GetProblemByIDSlug(ctx.Request.Context(), req)
+	resp, err := c.problemClient.GetProblemByIdSlug(ctx.Request.Context(), req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -628,7 +628,7 @@ func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
 		})
 		return
 	}
-	if resp.Problemmetdata == nil {
+	if resp.ProblemMetadata == nil {
 		ctx.JSON(http.StatusNotFound, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusNotFound,
@@ -640,14 +640,14 @@ func (c *ProblemController) GetProblemByIDSlugHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, model.GenericResponse{
 		Success: true,
 		Status:  http.StatusOK,
-		Payload: resp.Problemmetdata,
+		Payload: resp.ProblemMetadata,
 		Error:   nil,
 	})
 }
 
 func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 	var req problemPB.GetProblemMetadataListRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if page, err := strconv.Atoi(ctx.Query("page")); err == nil && page > 0 {
 		req.Page = int32(page)
@@ -673,8 +673,8 @@ func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: map[string]interface{}{
-			"problems":    resp.Problemmetdata,
-			"total_count": len(resp.Problemmetdata),
+			"problems":    resp.ProblemMetadata,
+			"total_count": len(resp.ProblemMetadata),
 			"page":        req.Page,
 			"page_size":   req.PageSize,
 		},
@@ -684,7 +684,9 @@ func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 
 func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	var req problemPB.RunProblemRequest
-	req.TraceID = GetTraceID(&ctx.Request.Header)
+	//todo: add isChallenge, challengeToken - push submission status to challenge service
+
+	req.TraceId = GetTraceId(&ctx.Request.Header)
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		// fmt.Println("bind json failed ", req)
@@ -693,9 +695,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
-				"problem_id":      req.ProblemId,
-				"language":        req.Language,
-				"is_run_testcase": req.IsRunTestcase,
+				"problemId":     req.ProblemId,
+				"language":      req.Language,
+				"isRunTestcase": req.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
@@ -713,11 +715,11 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		return
 	}
 
-	// userID, exists := ctx.Get(middleware.EntityIDKey)
-	// if !exists || userID == nil {
-	// 	fmt.Println("no userID")
+	// userId, exists := ctx.Get(middleware.EntityIDKey)
+	// if !exists || userId == nil {
+	// 	fmt.Println("no userId")
 	// } else {
-	// 	req.UserId = userID.(string)
+	// 	req.UserId = userId.(string)
 	// }
 
 	// Validate required fields
@@ -726,16 +728,16 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
-				"problem_id":      req.ProblemId,
-				"language":        req.Language,
-				"is_run_testcase": req.IsRunTestcase,
+				"problemId":     req.ProblemId,
+				"language":      req.Language,
+				"isRunTestcase": req.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
 					FailedTestCases: 0,
 					FailedTestCase: model.TestCaseResult{
 						TestCaseIndex: -1,
-						Error:         "Missing required fields: problem_id, user_code, and language are required",
+						Error:         "Missing required fields: problemId, userCode, and language are required",
 					},
 					OverallPass: false,
 					SyntaxError: "",
@@ -747,7 +749,7 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 	}
 
 	getUserProfileRequest := &authUserAdminPB.GetUserProfileRequest{
-		UserID: req.UserId,
+		UserId: req.UserId,
 	}
 
 	resp, err := c.userClient.GetUserProfile(context.Background(), getUserProfileRequest)
@@ -777,9 +779,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
-				"problem_id":      req.ProblemId,
-				"language":        req.Language,
-				"is_run_testcase": req.IsRunTestcase,
+				"problemId":     req.ProblemId,
+				"language":      req.Language,
+				"isRunTestcase": req.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
@@ -827,9 +829,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  httpCode,
 			Payload: map[string]interface{}{
-				"problem_id":      resp2.ProblemId,
-				"language":        resp2.Language,
-				"is_run_testcase": resp2.IsRunTestcase,
+				"problemId":     resp2.ProblemId,
+				"language":      resp2.Language,
+				"isRunTestcase": resp2.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
@@ -855,9 +857,9 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 			Success: false,
 			Status:  http.StatusBadRequest,
 			Payload: map[string]interface{}{
-				"problem_id":      resp2.ProblemId,
-				"language":        resp2.Language,
-				"is_run_testcase": resp2.IsRunTestcase,
+				"problemId":     resp2.ProblemId,
+				"language":      resp2.Language,
+				"isRunTestcase": resp2.IsRunTestcase,
 				"rawoutput": model.UniversalExecutionResult{
 					TotalTestCases:  0,
 					PassedTestCases: 0,
@@ -894,10 +896,10 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		Success: true,
 		Status:  http.StatusOK,
 		Payload: map[string]interface{}{
-			"problem_id":      resp2.ProblemId,
-			"language":        resp2.Language,
-			"is_run_testcase": resp2.IsRunTestcase,
-			"rawoutput":       output,
+			"problemId":     resp2.ProblemId,
+			"language":      resp2.Language,
+			"isRunTestcase": resp2.IsRunTestcase,
+			"rawoutput":     output,
 		},
 		Error: nil,
 	})
@@ -915,12 +917,12 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 // }
 
 func (c *ProblemController) GetSubmissionHistoryOptionalProblemId(ctx *gin.Context) {
-	userID := ctx.Query("userID")
-	problemID := ctx.Query("problemID")
+	userId := ctx.Query("userId")
+	problemId := ctx.Query("problemId")
 	pageStr := ctx.Query("page")
 	limitStr := ctx.Query("limit")
 
-	if userID == "" { //if userid is not present dont run the code
+	if userId == "" { //if userid is not present dont run the code
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -928,8 +930,8 @@ func (c *ProblemController) GetSubmissionHistoryOptionalProblemId(ctx *gin.Conte
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing required field: userID",
-				Details:   "The userID query parameter is required",
+				Message:   "Missing required field: userId",
+				Details:   "The userId query parameter is required",
 			},
 		})
 		return
@@ -946,14 +948,14 @@ func (c *ProblemController) GetSubmissionHistoryOptionalProblemId(ctx *gin.Conte
 
 	//prepare the gRPC request
 	grpcReq := problemPB.GetSubmissionsRequest{
-		UserId:    userID,
-		ProblemId: &problemID,
+		UserId:    userId,
+		ProblemId: &problemId,
 		Page:      int32(page),
 		Limit:     int32(limit),
-		TraceID:   GetTraceID(&ctx.Request.Header),
+		TraceId:   GetTraceId(&ctx.Request.Header),
 	}
 
-	resp, err := c.problemClient.GetSubmissionsByOptionalProblemID(ctx.Request.Context(), &grpcReq)
+	resp, err := c.problemClient.GetSubmissionsByOptionalProblemId(ctx.Request.Context(), &grpcReq)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1023,9 +1025,9 @@ func convertTimestampToTime(pbTimestamp *problemPB.Timestamp) time.Time {
 }
 
 func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
-	// Extract userID from query parameters
-	userID := ctx.Query("userID")
-	if userID == "" {
+	// Extract userId from query parameters
+	userId := ctx.Query("userId")
+	if userId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1033,8 +1035,8 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing required field: userID",
-				Details:   "The userID query parameter is required",
+				Message:   "Missing required field: userId",
+				Details:   "The userId query parameter is required",
 			},
 		})
 		return
@@ -1042,8 +1044,8 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 
 	// Prepare the gRPC request
 	grpcReq := &problemPB.GetProblemsDoneStatisticsRequest{
-		UserId:  userID,
-		TraceID: GetTraceID(&ctx.Request.Header),
+		UserId:  userId,
+		TraceId: GetTraceId(&ctx.Request.Header),
 	}
 
 	// Call the gRPC service
@@ -1074,7 +1076,7 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 				ErrorType: "NOT_FOUND",
 				Code:      http.StatusNotFound,
 				Message:   "Problem statistics not found",
-				Details:   "No statistics available for the given userID",
+				Details:   "No statistics available for the given userId",
 			},
 		})
 		return
@@ -1100,11 +1102,11 @@ func (c *ProblemController) GetProblemStatistics(ctx *gin.Context) {
 }
 
 func (c *ProblemController) GetMonthlyActivityHeatmapController(ctx *gin.Context) {
-	userID := ctx.Query("userID")
+	userId := ctx.Query("userId")
 	monthStr := ctx.Query("month")
 	yearStr := ctx.Query("year")
 
-	if userID == "" {
+	if userId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1113,7 +1115,7 @@ func (c *ProblemController) GetMonthlyActivityHeatmapController(ctx *gin.Context
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
 				Message:   "Missing required query parameter",
-				Details:   "userID is required",
+				Details:   "userId is required",
 			},
 		})
 		return
@@ -1132,10 +1134,10 @@ func (c *ProblemController) GetMonthlyActivityHeatmapController(ctx *gin.Context
 	}
 
 	grpcReq := &problemPB.GetMonthlyActivityHeatmapRequest{
-		UserID:  userID,
+		UserId:  userId,
 		Month:   int32(month),
 		Year:    int32(year),
-		TraceID: GetTraceID(&ctx.Request.Header),
+		TraceId: GetTraceId(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetMonthlyActivityHeatmap(ctx.Request.Context(), grpcReq)
@@ -1163,7 +1165,7 @@ func (c *ProblemController) GetMonthlyActivityHeatmapController(ctx *gin.Context
 				ErrorType: "NOT_FOUND",
 				Code:      http.StatusNotFound,
 				Message:   "Monthly activity heatmap not found",
-				Details:   "No data available for the given userID, month, and year",
+				Details:   "No data available for the given userId, month, and year",
 			},
 		})
 		return
@@ -1201,7 +1203,7 @@ func (c *ProblemController) GetTopKGlobalController(ctx *gin.Context) {
 
 	grpcReq := &problemPB.GetTopKGlobalRequest{
 		K:       int32(k),
-		TraceID: GetTraceID(&ctx.Request.Header),
+		TraceId: GetTraceId(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetTopKGlobal(ctx.Request.Context(), grpcReq)
@@ -1270,7 +1272,7 @@ func (c *ProblemController) GetTopKEntityController(ctx *gin.Context) {
 
 	grpcReq := &problemPB.GetTopKEntityRequest{
 		Entity:  entity,
-		TraceID: GetTraceID(&ctx.Request.Header),
+		TraceId: GetTraceId(&ctx.Request.Header),
 
 		// K:      int32(k),
 	}
@@ -1317,8 +1319,8 @@ func (c *ProblemController) GetTopKEntityController(ctx *gin.Context) {
 }
 
 func (c *ProblemController) GetUserRankController(ctx *gin.Context) {
-	userID := ctx.Query("userID")
-	if userID == "" {
+	userId := ctx.Query("userId")
+	if userId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1327,15 +1329,15 @@ func (c *ProblemController) GetUserRankController(ctx *gin.Context) {
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
 				Message:   "Missing required query parameter",
-				Details:   "userID is required",
+				Details:   "userId is required",
 			},
 		})
 		return
 	}
 
 	grpcReq := &problemPB.GetUserRankRequest{
-		UserId:  userID,
-		TraceID: GetTraceID(&ctx.Request.Header),
+		UserId:  userId,
+		TraceId: GetTraceId(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetUserRank(ctx.Request.Context(), grpcReq)
@@ -1363,7 +1365,7 @@ func (c *ProblemController) GetUserRankController(ctx *gin.Context) {
 				ErrorType: "NOT_FOUND",
 				Code:      http.StatusNotFound,
 				Message:   "User rank not found",
-				Details:   fmt.Sprintf("No ranking data available for userID %s", userID),
+				Details:   fmt.Sprintf("No ranking data available for userId %s", userId),
 			},
 		})
 		return
@@ -1378,8 +1380,8 @@ func (c *ProblemController) GetUserRankController(ctx *gin.Context) {
 }
 
 func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
-	userID := ctx.Query("userID")
-	if userID == "" {
+	userId := ctx.Query("userId")
+	if userId == "" {
 		ctx.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1388,15 +1390,15 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
 				Message:   "Missing required query parameter",
-				Details:   "userID is required",
+				Details:   "userId is required",
 			},
 		})
 		return
 	}
 
 	grpcReq := &problemPB.GetLeaderboardDataRequest{
-		UserId:  userID,
-		TraceID: GetTraceID(&ctx.Request.Header),
+		UserId:  userId,
+		TraceId: GetTraceId(&ctx.Request.Header),
 	}
 
 	resp, err := c.problemClient.GetLeaderboardData(ctx.Request.Context(), grpcReq)
@@ -1424,20 +1426,20 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 				ErrorType: "NOT_FOUND",
 				Code:      http.StatusNotFound,
 				Message:   "Leaderboard data not found",
-				Details:   fmt.Sprintf("No leaderboard data available for userID %s", userID),
+				Details:   fmt.Sprintf("No leaderboard data available for userId %s", userId),
 			},
 		})
 		return
 	}
 
 	// Collect unique user IDs
-	userIDs := make(map[string]struct{}, len(resp.TopKGlobal)+len(resp.TopKEntity)+1)
-	userIDs[resp.UserId] = struct{}{}
+	userIds := make(map[string]struct{}, len(resp.TopKGlobal)+len(resp.TopKEntity)+1)
+	userIds[resp.UserId] = struct{}{}
 	for _, user := range resp.TopKGlobal {
-		userIDs[user.UserId] = struct{}{}
+		userIds[user.UserId] = struct{}{}
 	}
 	for _, user := range resp.TopKEntity {
-		userIDs[user.UserId] = struct{}{}
+		userIds[user.UserId] = struct{}{}
 	}
 
 	// Concurrently fetch user profiles
@@ -1450,14 +1452,14 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 		err error
 	}
 
-	results := make(chan profileResult, len(userIDs))
+	results := make(chan profileResult, len(userIds))
 	var wg sync.WaitGroup
 
-	for id := range userIDs {
+	for id := range userIds {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			profileReq := &authUserAdminPB.GetUserProfileRequest{UserID: id}
+			profileReq := &authUserAdminPB.GetUserProfileRequest{UserId: id}
 			profile, err := c.userClient.GetUserProfile(ctx.Request.Context(), profileReq)
 			result := profileResult{id: id}
 			if err != nil {
@@ -1466,7 +1468,7 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 				result.profile = struct {
 					UserName  string
 					AvatarURL string
-				}{UserName: profile.UserProfile.UserName, AvatarURL: profile.UserProfile.AvatarData}
+				}{UserName: profile.UserProfile.UserName, AvatarURL: profile.UserProfile.AvatarURL}
 			}
 			results <- result
 		}(id)
@@ -1482,7 +1484,7 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 	userProfiles := make(map[string]struct {
 		UserName  string
 		AvatarURL string
-	}, len(userIDs))
+	}, len(userIds))
 	for result := range results {
 		userProfiles[result.id] = result.profile
 	}
@@ -1513,8 +1515,8 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 		AvatarURL:  userProfiles[resp.UserId].AvatarURL,
 		Score:      resp.Score,
 		Entity:     resp.Entity,
-		GlobalRank: resp.GlobalRank,
-		EntityRank: resp.EntityRank,
+		GlobalRank: resp.GlobalRank + 1,
+		EntityRank: resp.EntityRank + 1,
 		TopKGlobal: make([]UserScoreResponse, len(resp.TopKGlobal)),
 		TopKEntity: make([]UserScoreResponse, len(resp.TopKEntity)),
 	}
@@ -1548,8 +1550,8 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 }
 
 func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
-	problemIDs := c.QueryArray("problem_ids")
-	if len(problemIDs) == 0 {
+	problemIds := c.QueryArray("problemIds")
+	if len(problemIds) == 0 {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1557,15 +1559,15 @@ func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing fields, please ensure problem_ids are added as array",
-				Details:   "Missing fields, please ensure problem_ids are added as array, Example: ?problem_ids=prob1&problem_ids=prob2",
+				Message:   "Missing fields, please ensure problemIds are added as array",
+				Details:   "Missing fields, please ensure problemIds are added as array, Example: ?problemIds=prob1&problemIds=prob2",
 			},
 		})
 		return
 	}
 
 	req := problemPB.GetBulkProblemMetadataRequest{
-		ProblemIds: problemIDs,
+		ProblemIds: problemIds,
 	}
 
 	resp, err := u.problemClient.GetBulkProblemMetadata(c.Request.Context(), &req)
@@ -1598,12 +1600,12 @@ func (u *ProblemController) GetBulkProblemMetadata(c *gin.Context) {
 }
 
 func (u *ProblemController) ProblemIDsDoneByUserID(c *gin.Context) {
-	var req problemPB.ProblemIDsDoneByUserIDRequest
+	var req problemPB.ProblemIdsDoneByUserIdRequest
 
-	// Try to get user_id from query if not provided in JSON
-	userID := c.Query("user_id")
-	if userID != "" {
-		req.UserId = userID
+	// Try to get userId from query if not provided in JSON
+	userId := c.Query("userId")
+	if userId != "" {
+		req.UserId = userId
 	} else {
 		if err := c.ShouldBindJSON(&req); err != nil || req.UserId == "" {
 			c.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1613,15 +1615,15 @@ func (u *ProblemController) ProblemIDsDoneByUserID(c *gin.Context) {
 				Error: &model.ErrorInfo{
 					ErrorType: customerrors.ERR_INVALID_REQUEST,
 					Code:      http.StatusBadRequest,
-					Message:   "provide user_id",
-					Details:   "provide user_id in query or JSON body",
+					Message:   "provide userId",
+					Details:   "provide userId in query or JSON body",
 				},
 			})
 			return
 		}
 	}
 
-	resp, err := u.problemClient.ProblemIDsDoneByUserID(c.Request.Context(), &req)
+	resp, err := u.problemClient.ProblemIdsDoneByUserId(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusNotFound, model.GenericResponse{
 			Success: false,
@@ -1661,8 +1663,8 @@ func (u *ProblemController) VerifyProblemExistenceBulk(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_INVALID_REQUEST,
 				Code:      http.StatusBadRequest,
-				Message:   "provide problem_ids",
-				Details:   "provide problem_ids",
+				Message:   "provide problemIds",
+				Details:   "provide problemIds",
 			},
 		})
 		return
@@ -1698,9 +1700,9 @@ func (u *ProblemController) VerifyProblemExistenceBulk(c *gin.Context) {
 }
 
 func (u *ProblemController) RandomProblemIDsGenWithDifficultyRatio(c *gin.Context) {
-	var req problemPB.RandomProblemIDsGenWithDifficultyRatioRequest
+	var req problemPB.RandomProblemIdsGenWithDifficultyRatioRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil || req.GetQnratio() == nil {
+	if err := c.ShouldBindJSON(&req); err != nil || req.QnRatio == nil {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
 			Status:  http.StatusBadRequest,
@@ -1715,7 +1717,7 @@ func (u *ProblemController) RandomProblemIDsGenWithDifficultyRatio(c *gin.Contex
 		return
 	}
 
-	resp, err := u.problemClient.RandomProblemIDsGenWithDifficultyRatio(c.Request.Context(), &req)
+	resp, err := u.problemClient.RandomProblemIdsGenWithDifficultyRatio(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusNotFound, model.GenericResponse{
 			Success: false,
