@@ -17,9 +17,6 @@ type Config struct {
 
 	// Microservices
 	APIGATEWAYPORT     string
-	UserGRPCPort       string
-	CompilerGRPCPort   string
-	ProblemGRPCPort    string
 	NATSURL            string
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -43,11 +40,6 @@ func LoadConfig() Config {
 	return Config{
 		Environment:        getEnv("ENVIRONMENT", "development"),
 		JWTSecretKey:       getEnv("JWTSECRETKEY", "secretLeetcode"),
-		APIGATEWAYPORT:     getEnv("APIGATEWAYPORT", "7000"),
-		UserGRPCPort:       getEnv("USERGRPCPORT", "50051"),
-		CompilerGRPCPort:   getEnv("COMPILERGRPCPORT", "50053"),
-		ProblemGRPCPort:    getEnv("PROBLEMGRPCPORT", "50055"),
-		NATSURL:            getEnv("NATSURL", "nats://localhost:4222"),
 		GoogleClientID:     getEnv("GOOGLECLIENTID", ""),
 		GoogleClientSecret: getEnv("GOOGLECLIENTSECRET", ""),
 		GoogleRedirectURL:  getEnv("GOOGLEREDIRECTURL", ""),
@@ -56,9 +48,10 @@ func LoadConfig() Config {
 		BetterStackUploadURL:   getEnv("BETTERSTACKUPLOADURL", ""),
 		FrontendURL:            getEnv("FRONTENDURL", "http://localhost:8080"),
 
-		UserGRPCURL:      getEnv("USERGRPCURL", "localhost:50051"),
-		ProblemGRPCURL:   getEnv("PROBLEMGRPCURL", "localhost:50055"),
-
+		APIGATEWAYPORT:     getEnv("APIGATEWAYPORT", "7000"),
+		NATSURL:            getEnv("NATSURL", "nats://localhost:4222"),
+		UserGRPCURL:    getEnv("USERGRPCURL", "localhost:50051"),
+		ProblemGRPCURL: getEnv("PROBLEMGRPCURL", "localhost:50055"),
 		//in-progress
 		ChallengeGRPCURL: getEnv("CHALLENGEGRPCURL", "localhost:50057"),
 	}

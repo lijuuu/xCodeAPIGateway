@@ -14,7 +14,4 @@ FROM alpine:3.20
 WORKDIR /app
 COPY --from=builder /app/main .
 
-#optional: add ca-certificates if using HTTPS
-RUN apk add --no-cache ca-certificates
-
 CMD ["./main"]
