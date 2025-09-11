@@ -1515,8 +1515,8 @@ func (c *ProblemController) GetLeaderboardDataController(ctx *gin.Context) {
 		AvatarURL:  userProfiles[resp.UserId].AvatarURL,
 		Score:      resp.Score,
 		Entity:     resp.Entity,
-		GlobalRank: resp.GlobalRank + 1,
-		EntityRank: resp.EntityRank + 1,
+		GlobalRank: resp.GlobalRank,
+		EntityRank: resp.EntityRank,
 		TopKGlobal: make([]UserScoreResponse, len(resp.TopKGlobal)),
 		TopKEntity: make([]UserScoreResponse, len(resp.TopKEntity)),
 	}

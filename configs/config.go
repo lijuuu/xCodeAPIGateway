@@ -57,8 +57,9 @@ func LoadConfig() Config {
 		FrontendURL:            getEnv("FRONTENDURL", "http://localhost:8080"),
 
 		UserGRPCURL:      getEnv("USERGRPCURL", "localhost:50051"),
-		CompilerGRPCURL:  getEnv("COMPILERGRPCURL", "localhost:50053"),
 		ProblemGRPCURL:   getEnv("PROBLEMGRPCURL", "localhost:50055"),
+
+		//in-progress
 		ChallengeGRPCURL: getEnv("CHALLENGEGRPCURL", "localhost:50057"),
 	}
 }
