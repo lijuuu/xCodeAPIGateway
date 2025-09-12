@@ -264,7 +264,7 @@ func (uc *UserController) GoogleLoginCallback(c *gin.Context) {
 
 	// Redirect the user to the frontend URL with tokens in query parameters
 	config := configs.LoadConfig()
-	redirectURL := fmt.Sprintf("%s?success=true&accessToken=%s&refreshToken=%s&expiresIn=%d&UserId=%s",
+	redirectURL := fmt.Sprintf("%s/login?success=true&accessToken=%s&refreshToken=%s&expiresIn=%d&UserId=%s",
 		config.FrontendURL,
 		resp.AccessToken,
 		resp.RefreshToken,
