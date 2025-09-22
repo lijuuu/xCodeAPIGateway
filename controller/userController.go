@@ -1611,7 +1611,7 @@ func (uc *UserController) BanUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UnbanUserHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
