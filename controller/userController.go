@@ -1241,7 +1241,7 @@ func (uc *UserController) UnfollowUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetFollowingHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		if jwtUserId, exists := c.Get(middleware.EntityIDKey); exists {
 			UserId = jwtUserId.(string)
@@ -1300,7 +1300,7 @@ func (uc *UserController) GetFollowingHandler(c *gin.Context) {
 }
 
 func (uc *UserController) GetFollowersHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		if jwtUserId, exists := c.Get(middleware.EntityIDKey); exists {
 			UserId = jwtUserId.(string)
@@ -1361,7 +1361,7 @@ func (uc *UserController) GetFollowersHandler(c *gin.Context) {
 //
 
 func (uc *UserController) GetFollowFollowingCheckHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
@@ -1476,7 +1476,7 @@ func (uc *UserController) CreateUserAdminHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UpdateUserAdminHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1663,7 +1663,7 @@ func (uc *UserController) UnbanUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1672,8 +1672,8 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing UserId query parameter",
-				Details:   "UserId is required",
+				Message:   "Missing userId query parameter",
+				Details:   "userId is required",
 			},
 		})
 		return
@@ -1715,7 +1715,7 @@ func (uc *UserController) VerifyAdminUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1724,8 +1724,8 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 			Error: &model.ErrorInfo{
 				ErrorType: customerrors.ERR_PARAM_EMPTY,
 				Code:      http.StatusBadRequest,
-				Message:   "Missing UserId query parameter",
-				Details:   "UserId is required",
+				Message:   "Missing userId query parameter",
+				Details:   "userId is required",
 			},
 		})
 		return
@@ -1767,7 +1767,7 @@ func (uc *UserController) UnverifyUserHandler(c *gin.Context) {
 }
 
 func (uc *UserController) SoftDeleteUserAdminHandler(c *gin.Context) {
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -1926,7 +1926,7 @@ func (uc *UserController) BanHistoryHandler(c *gin.Context) {
 		return
 	}
 
-	UserId := c.Query("UserId")
+	UserId := c.Query("userId")
 	if UserId == "" && ctxUserId.(string) == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
