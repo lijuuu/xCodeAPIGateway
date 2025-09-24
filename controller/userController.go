@@ -519,7 +519,7 @@ func (uc *UserController) CheckToken(c *gin.Context) {
 
 func (uc *UserController) VerifyUserHandlerAgainstEmail(c *gin.Context) {
 	email := c.Query("email")
-	token := c.Query("payload")
+	token := c.Query("token")
 	if email == "" || token == "" {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
