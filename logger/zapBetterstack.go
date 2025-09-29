@@ -15,10 +15,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Custom log level for NOTICE (below DebugLevel, non-error informational logs)
+//Custom log level for NOTICE (below DebugLevel, non-error informational logs)
 const NoticeLevel zapcore.Level = -2
 
-// logEntry represents a single log entry for Better Stack
+//logEntry represents a single log entry for Better Stack
 type logEntry struct {
 	Timestamp  string         `json:"timestamp"`
 	Level      string         `json:"level"`
@@ -27,11 +27,11 @@ type logEntry struct {
 	Attributes map[string]any `json:"attributes"`
 }
 
-// BetterStackLoggingMiddleware captures HTTP request metadata and logs it based on environment
+//BetterStackLoggingMiddleware captures HTTP request metadata and logs it based on environment
 func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL string, logger *zap.Logger) gin.HandlerFunc {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	// File writer for development environment
+	//File writer for development environment
 	var fileWriter io.Writer
 	var fileMu sync.Mutex
 	if environment == "development" {
@@ -42,7 +42,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		} else {
 			fileWriter = f
 		}
-		// Combine file and stdout for development
+		//Combine file and stdout for development
 		fileWriter = io.MultiWriter(fileWriter, os.Stdout)
 	}
 
@@ -51,33 +51,33 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
 
-		// Generate TraceID and set in header and context
+		//Generate TraceID and set in header and context
 		traceID := uuid.New().String()
 		c.Request.Header.Set("X-Trace-ID", traceID)
-		// c.Set("TraceID", traceID)
+		//c.Set("TraceID", traceID)
 
-		// Process request
+		//Process request
 		c.Next()
 
-		// Determine log level based on response status
+		//Determine log level based on response status
 		status := c.Writer.Status()
 		var levelStr string
 
 		switch {
 		case status >= 500:
-			// server errors
+			//server errors
 			levelStr = "ERROR"
 		case status >= 400:
-			// client errors
+			//client errors
 			levelStr = "WARN"
 		case status >= 300:
-			// redirects
+			//redirects
 			levelStr = "INFO"
 		case status >= 200:
-			// success
+			//success
 			levelStr = "NOTICE"
 		default:
-			// unknown cases
+			//unknown cases
 			levelStr = "DEBUG"
 		}
 
@@ -85,7 +85,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 			return
 		}
 
-		// Create log entry
+		//Create log entry
 		latency := time.Since(start)
 		bodyBytes, _ := io.ReadAll(c.Request.Body)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
@@ -107,7 +107,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 			},
 		}
 
-		// Marshal log to JSON
+		//Marshal log to JSON
 		body, err := json.Marshal(entry)
 		if err != nil {
 			logger.Error("Failed to marshal log", zap.Error(err))
@@ -115,7 +115,7 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 		}
 
 		if environment == "development" {
-			// Write to file only in development (avoid console writes)
+			//Write to file only in development (avoid console writes)
 			fileMu.Lock()
 			_, err := fileWriter.Write(append(body, '\n'))
 			fileMu.Unlock()
@@ -125,16 +125,16 @@ func BetterStackLoggingMiddleware(sourceToken, environment, BetterStackUploadURL
 			return
 		}
 
-		// Production: Send log to Better Stack
+		//Production: Send log to Better Stack
 		req, err := http.NewRequest("POST", BetterStackUploadURL, bytes.NewReader(body))
 		if err != nil {
-			// logger.Error("Failed to create HTTP request", zap.Error(err))
+			//logger.Error("Failed to create HTTP request", zap.Error(err))
 			return
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+sourceToken)
 
-		// Send log asynchronously
+		//Send log asynchronously
 		go func() {
 			resp, err := client.Do(req)
 			if err != nil {

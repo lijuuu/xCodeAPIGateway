@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"xcode/clients"
 	"xcode/configs"
 	"xcode/controller"
@@ -29,12 +30,32 @@ func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecr
 	ChallengeController := controller.NewChallengeController(ChallengeClient, ProblemClient)
 
 	ApiV1 := Router.Group("/api/v1")
+
+	//TEMP: health check and test-inmemory cache
+	SetUpTestRoutes(Router)
+
 	SetUpPublicAuthRoutes(ApiV1, UserController)
 	SetUpProtectedUserRoutes(ApiV1, UserController, JWTSecret)
 	SetUpAdminRoutes(ApiV1, UserController, JWTSecret)
 	SetUpCompilerRoutes(ApiV1, CompilerController)
 	SetUpProblemRoutes(ApiV1, ProblemController, JWTSecret, UserController)
 	SetUpChallengeRoutes(ApiV1, ChallengeController, UserController, JWTSecret)
+}
+
+func SetUpTestRoutes(r *gin.Engine) {
+	r.GET("/test-cache", func(c *gin.Context) {
+		if _, exists := c.Get("cacheInstance"); !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cache instance not found"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "cache instance ok"})
+	})
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
 }
 
 // http://localhost:7000/api/v1/auth
