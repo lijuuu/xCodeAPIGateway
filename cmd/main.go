@@ -2,89 +2,103 @@ package main
 
 import (
 	"net/http"
-
 	"xcode/clients"
 	"xcode/configs"
 	logger "xcode/logger"
+	metric "xcode/prometheus"
 	ristretto "xcode/ristretto"
 	route "xcode/route"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 )
 
 func main() {
-	// load configs
+	//load configs
 	cfg := configs.LoadConfig()
 
-	// init zap logger
-	log, _ := zap.NewDevelopment()
-	defer log.Sync()
+	//init zap logger
+	appLogger, _ := zap.NewDevelopment()
+	defer appLogger.Sync()
 
-	// init gRPC clients
-	client, err := clients.InitClients(&cfg)
+	//init gRPC clients
+	grpcClient, err := clients.InitClients(&cfg)
 	if err != nil {
-		log.Fatal("init gRPC clients failed", zap.Error(err))
+		appLogger.Fatal("init gRPC clients failed", zap.Error(err))
 	}
-	defer client.Close()
+	defer grpcClient.Close()
 
-	// gin router
-	r := gin.Default()
+	//gin router
+	appRouter := gin.Default()
 
-	// betterstack logging middleware
-	r.Use(logger.BetterStackLoggingMiddleware(cfg.BetterStackSourceToken, cfg.Environment, cfg.BetterStackUploadURL, log))
+	//setup metrics
+	requestCounter, latencyHistogram := metric.NewPrometheusClient()
+	setupMetrics(appRouter, requestCounter, latencyHistogram)
 
-	// rate limiting middleware
-	// limiter := rate.NewLimiter(5, 15)
-	// r.Use(func(c *gin.Context) {
-	// 	if !limiter.Allow() {
-	// 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
-	// 		c.Abort()
-	// 		return 
-	// 	}
-	// 	c.Next()
-	// })
-
-	// cache setup
-	cacheInstance, err := ristretto.NewCache()
+	//setup middleware
+	appCache, err := ristretto.NewCache()
 	if err != nil {
-		log.Fatal("cache init failed", zap.Error(err))
+		appLogger.Fatal("cache init failed", zap.Error(err))
 	}
-	r.Use(func(c *gin.Context) {
-		c.Set("cacheInstance", cacheInstance)
-		c.Next()
-	})
+	requestLimiter := rate.NewLimiter(5, 15) //5 per sec refill, 15 burst
+	setupMiddleware(appRouter, cfg, appLogger, appCache, requestLimiter)
 
-	r.GET("/test-cache", func(c *gin.Context) {
-		if _, exists := c.Get("cacheInstance"); !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "cache instance not found"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": "cache instance ok"})
-	})
+	//routes
+	route.SetupRoutes(appRouter, grpcClient, cfg.JWTSecretKey, appLogger)
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "ok",
-		})
-	})
+	//start server
+	port := cfg.APIGATEWAYPORT
+	appLogger.Info("API Gateway running", zap.String("port", port))
+	if err := appRouter.Run(":" + port); err != nil {
+		appLogger.Fatal("server failed", zap.Error(err))
+	}
+}
 
-	// cors setup
-	r.Use(cors.New(cors.Config{
+// setupMetrics adds Prometheus middleware and /metrics endpoint
+func setupMetrics(router *gin.Engine, requestCounter *prometheus.CounterVec, latencyHistogram *prometheus.HistogramVec) {
+	router.Use(metric.PrometheusMiddleware(requestCounter, latencyHistogram))
+	router.GET("/metrics", metric.Handler())
+}
+
+// setupMiddleware registers all other middleware
+func setupMiddleware(router *gin.Engine, cfg configs.Config, appLogger *zap.Logger, appCache *ristretto.Cache, limiter *rate.Limiter) {
+	//betterstack logging middleware
+	router.Use(logger.BetterStackLoggingMiddleware(cfg.BetterStackSourceToken, cfg.Environment, cfg.BetterStackUploadURL, appLogger))
+
+	//rate limiter
+	router.Use(rateLimiterMiddleware(limiter))
+
+	//cache middleware
+	router.Use(cacheMiddleware(appCache))
+
+	//cors setup
+	router.Use(cors.New(cors.Config{
 		AllowAllOrigins:  true,
 		AllowCredentials: true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Content-Type", "Authorization", "X-CSRF-Token", "Access-Control-Allow-Origin"},
 	}))
+}
 
-	// routes
-	route.SetupRoutes(r, client, cfg.JWTSecretKey,log)
+// rateLimiterMiddleware returns a Gin middleware enforcing token bucket limits
+func rateLimiterMiddleware(limiter *rate.Limiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !limiter.Allow() {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many requests"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
 
-	// start server
-	port := cfg.APIGATEWAYPORT
-	log.Info("API Gateway running", zap.String("port", port))
-	if err := r.Run(":" + port); err != nil {
-		log.Fatal("server failed", zap.Error(err))
+// cacheMiddleware returns a Gin middleware that sets the cache instance in context
+func cacheMiddleware(appCache *ristretto.Cache) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("cacheInstance", appCache)
+		c.Next()
 	}
 }
