@@ -860,9 +860,7 @@ func (uc *UserController) UpdateProfileHandler(c *gin.Context) {
 }
 
 func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
-	// var req model.UpdateProfileImageRequest
 	file, err := c.FormFile("avatar")
-
 	if err != nil {
 		c.JSON(http.StatusBadRequest, model.GenericResponse{
 			Success: false,
@@ -894,7 +892,21 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 		return
 	}
 
-	avatarUrl, _ := utils.UploadToCloudinary(file)
+	avatarUrl, uploadErr := utils.UploadToCloudinary(file)
+	if uploadErr != nil {
+		c.JSON(http.StatusServiceUnavailable, model.GenericResponse{
+			Success: false,
+			Status:  http.StatusServiceUnavailable,
+			Payload: nil,
+			Error: &model.ErrorInfo{
+				ErrorType: model.ErrImageUpdateFailed,
+				Code:      http.StatusServiceUnavailable,
+				Message:   "Image upload service is down",
+				Details:   uploadErr.Error(),
+			},
+		})
+		return
+	}
 
 	updateProfileImageRequest := &authUserAdminPB.UpdateProfileImageRequest{
 		UserId:    UserId.(string),
@@ -904,19 +916,16 @@ func (uc *UserController) UpdateProfileImageHandler(c *gin.Context) {
 
 	resp, err := uc.userClient.UpdateProfileImage(c.Request.Context(), updateProfileImageRequest)
 	if err != nil {
-		grpcStatus, _ := status.FromError(err)
-		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
-		httpCode := mapGrpcCodeToHttp(grpcCode)
-
+		httpCode := http.StatusBadRequest
 		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
 			Status:  httpCode,
 			Payload: nil,
 			Error: &model.ErrorInfo{
-				ErrorType: errorType,
+				ErrorType: model.ErrImageUpdateFailed,
 				Code:      httpCode,
 				Message:   "Image update failed",
-				Details:   details,
+				Details:   model.ErrImageUpdateFailed,
 			},
 		})
 		return

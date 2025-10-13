@@ -37,6 +37,10 @@ const (
 	ErrFailedUnbanUser         = "Failed to unban user"
 	ErrFailedCheckBan          = "Failed to check ban status"
 	ErrFailedRetrieveUsers     = "Failed to retrieve users"
+
+
+	//Image
+	ErrImageUpdateFailed = "Failed to update image"
 )
 
 // Response messages

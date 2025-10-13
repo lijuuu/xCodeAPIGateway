@@ -247,6 +247,8 @@ type UniversalExecutionResult struct {
 	FailedTestCase  TestCaseResult `json:"failedTestCase,omitempty"`
 	OverallPass     bool           `json:"overallPass"`
 	SyntaxError     string         `json:"syntaxError"`
+
+	TimeTakenMillis int `json:"timeTakenMillis"`
 }
 type TestCaseResult struct {
 	TestCaseIndex int         `json:"testCaseIndex"`

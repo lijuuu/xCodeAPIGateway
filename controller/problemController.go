@@ -14,17 +14,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 	authUserAdminPB "github.com/lijuuu/GlobalProtoXcode/AuthUserAdminService"
+	challengePB "github.com/lijuuu/GlobalProtoXcode/ChallengeService"
 	problemPB "github.com/lijuuu/GlobalProtoXcode/ProblemsService"
 	"google.golang.org/grpc/status"
 )
 
 type ProblemController struct {
-	problemClient problemPB.ProblemsServiceClient
-	userClient    authUserAdminPB.AuthUserAdminServiceClient
+	problemClient   problemPB.ProblemsServiceClient
+	userClient      authUserAdminPB.AuthUserAdminServiceClient
+	challengeClient challengePB.ChallengeServiceClient
 }
 
-func NewProblemController(problemClient problemPB.ProblemsServiceClient, userClient authUserAdminPB.AuthUserAdminServiceClient) *ProblemController {
-	return &ProblemController{problemClient: problemClient, userClient: userClient}
+func NewProblemController(problemClient problemPB.ProblemsServiceClient, userClient authUserAdminPB.AuthUserAdminServiceClient, challengeClient challengePB.ChallengeServiceClient) *ProblemController {
+	return &ProblemController{problemClient: problemClient, userClient: userClient, challengeClient: challengeClient}
 }
 
 func (c *ProblemController) CreateProblemHandler(ctx *gin.Context) {
@@ -674,7 +676,7 @@ func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 		Status:  http.StatusOK,
 		Payload: map[string]interface{}{
 			"problems":    resp.ProblemMetadata,
-			"total_count": len(resp.ProblemMetadata),
+			"total_count": resp.TotalSize,
 			"page":        req.Page,
 			"page_size":   req.PageSize,
 		},
@@ -880,16 +882,25 @@ func (c *ProblemController) RunUserCodeProblemHandler(ctx *gin.Context) {
 		return
 	}
 
-	// Ensure OverallPass is set correctly based on test case results
-	// if output.FailedTestCases == 0 && output.PassedTestCases == output.TotalTestCases {
-	// 	output.OverallPass = true
-	// } else {
-	// 	output.OverallPass = false
-	// }
-
-	// Log for debugging
-	fmt.Println("resp from execution:", resp)
-	fmt.Println("parsed output:", output)
+	for retry := 0; retry < 2; retry++ {
+		if req.IsChallenge {
+			input := &challengePB.PushSubmissionStatusRequest{
+				UserCode:        req.UserCode,
+				ChallengeId:     *req.ChallengeId,
+				UserId:          req.UserId,
+				ProblemId:       req.ProblemId,
+				IsSuccessful:    output.OverallPass,
+				TimeTakenMillis: int64(output.TimeTakenMillis),
+				TraceId:         req.TraceId,
+			}
+			_, err := c.challengeClient.PushSubmissionStatus(context.Background(), input)
+			if err != nil {
+				fmt.Printf("failed to push submission status to challenge service (attempt %d): %v\n", retry+1, err)
+				continue
+			}
+		}
+		break
+	}
 
 	// Success response
 	ctx.JSON(http.StatusOK, model.GenericResponse{

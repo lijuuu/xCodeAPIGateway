@@ -88,14 +88,8 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 	}
 
 	// enforce min time limit
-	if req.TimeLimitMillis < 10000 {
-		req.TimeLimitMillis = 10000
-	}
-
-	// set default start time if invalid or too soon
-	nowPlus5Min := time.Now().Add(5 * time.Minute).Unix()
-	if req.StartTimeUnix == 0 || req.StartTimeUnix < nowPlus5Min {
-		req.StartTimeUnix = nowPlus5Min
+	if req.TimeLimitMillis < 1200 {
+		req.TimeLimitMillis = 1200
 	}
 
 	// ensure config is not nil
@@ -136,15 +130,19 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 				Hard:   req.Config.MaxHardQuestions,
 			},
 		})
-		if err != nil || resp.ErrorType == "INSUFFICIENT_PROBLEMS" {
+		if err != nil || resp == nil || resp.ErrorType == "INSUFFICIENT_PROBLEMS" {
 			grpcStatus, _ := status.FromError(err)
+			errorType := ""
+			if resp != nil {
+				errorType = resp.ErrorType
+			}
 			ctx.JSON(http.StatusInternalServerError, model.GenericResponse{
 				Success: false,
 				Status:  http.StatusInternalServerError,
 				Error: &model.ErrorInfo{
 					ErrorType: "grpc_error",
 					Code:      http.StatusInternalServerError,
-					Message:   "failed to generate problems : " + resp.ErrorType,
+					Message:   "failed to generate problems : " + errorType,
 					Details:   grpcStatus.Message(),
 				},
 			})

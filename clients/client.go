@@ -66,7 +66,7 @@ func InitClients(config *config.Config) (*ClientConnections, error) {
 	// Check connection state
 	if !waitForConnection(connUser, 5*time.Second) {
 		connUser.Close()
-		return nil, fmt.Errorf("User gRPC connection is not ready")
+		return nil, fmt.Errorf("user gRPC connection is not ready")
 	}
 	fmt.Println("Successfully connected to UserService at:", targetUser)
 
@@ -90,7 +90,7 @@ func waitForConnection(conn *grpc.ClientConn, timeout time.Duration) bool {
 			if conn.GetState() == connectivity.Ready {
 				return true
 			}
-			time.Sleep(100 * time.Millisecond) // Poll interval
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
@@ -101,5 +101,8 @@ func (c *ClientConnections) Close() {
 	}
 	if c.ConnProblem != nil {
 		c.ConnProblem.Close()
+	}
+	if c.ConnChallenge !=nil{
+		c.ConnChallenge.Close()
 	}
 }

@@ -26,7 +26,7 @@ func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecr
 
 	UserController := controller.NewUserController(UserClient, ProblemClient)
 	CompilerController := controller.NewCompilerController(NatsClient)
-	ProblemController := controller.NewProblemController(ProblemClient, UserClient)
+	ProblemController := controller.NewProblemController(ProblemClient, UserClient,ChallengeClient)
 	ChallengeController := controller.NewChallengeController(ChallengeClient, ProblemClient)
 
 	ApiV1 := Router.Group("/api/v1")
