@@ -659,7 +659,8 @@ func (c *ProblemController) GetProblemMetadataListHandler(ctx *gin.Context) {
 	}
 	req.Tags = ctx.QueryArray("tags")
 	req.Difficulty = ctx.Query("difficulty")
-	req.SearchQuery = ctx.Query("search_query")
+	req.SearchTitle = ctx.Query("search_title")
+	req.SearchTags = ctx.QueryArray("search_tags")
 	resp, err := c.problemClient.GetProblemMetadataList(ctx.Request.Context(), &req)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)

@@ -27,7 +27,7 @@ func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecr
 	UserController := controller.NewUserController(UserClient, ProblemClient)
 	CompilerController := controller.NewCompilerController(NatsClient)
 	ProblemController := controller.NewProblemController(ProblemClient, UserClient,ChallengeClient)
-	ChallengeController := controller.NewChallengeController(ChallengeClient, ProblemClient)
+	// ChallengeController := controller.NewChallengeController(ChallengeClient, ProblemClient)
 
 	ApiV1 := Router.Group("/api/v1")
 
@@ -39,7 +39,7 @@ func SetupRoutes(Router *gin.Engine, Clients *clients.ClientConnections, JWTSecr
 	SetUpAdminRoutes(ApiV1, UserController, JWTSecret)
 	SetUpCompilerRoutes(ApiV1, CompilerController)
 	SetUpProblemRoutes(ApiV1, ProblemController, JWTSecret, UserController)
-	SetUpChallengeRoutes(ApiV1, ChallengeController, UserController, JWTSecret)
+	// SetUpChallengeRoutes(ApiV1, ChallengeController, UserController, JWTSecret)
 }
 
 func SetUpTestRoutes(r *gin.Engine) {

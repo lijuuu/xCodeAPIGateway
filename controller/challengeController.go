@@ -97,6 +97,10 @@ func (c *ChallengeController) CreateChallenge(ctx *gin.Context) {
 		req.Config = &challengePB.ChallengeConfig{}
 	}
 
+	if req.MaxParticipants == 0 {
+		req.MaxParticipants = 2
+	}
+
 	// if user provided problem ids, verify them
 	if len(req.ProcessedProblemIds) > 0 && len(req.ProcessedProblemIds) <= 10 {
 		_, err := c.problemClient.VerifyProblemExistenceBulk(ctx, &problemPB.VerifyProblemExistenceBulkRequest{
@@ -269,6 +273,7 @@ func (c *ChallengeController) GetChallengeHistory(ctx *gin.Context) {
 	}
 
 	resp, err := c.challengeClient.GetChallengeHistory(ctx.Request.Context(), req)
+
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
 		ctx.JSON(http.StatusInternalServerError, model.GenericResponse{Success: false, Status: http.StatusInternalServerError, Error: &model.ErrorInfo{Message: grpcStatus.Message()}})

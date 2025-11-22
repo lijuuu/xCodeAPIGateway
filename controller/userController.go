@@ -2140,8 +2140,8 @@ func (uc *UserController) GetTwoFactorAuthStatusHandler(c *gin.Context) {
 	resp, err := uc.userClient.GetTwoFactorAuthStatus(c.Request.Context(), getTwoFactorAuthStatusRequest)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
-		httpCode := mapGrpcCodeToHttp(grpcCode)
+		errorType, _, details := parseGrpcError(grpcStatus.Message())
+		httpCode := http.StatusForbidden
 
 		c.JSON(httpCode, model.GenericResponse{
 			Success: false,
@@ -2216,8 +2216,8 @@ func (uc *UserController) VerifyTwoFactorAuth(c *gin.Context) {
 	resp, err := uc.userClient.VerifyTwoFactorAuth(c.Request.Context(), verifyRequest)
 	if err != nil {
 		grpcStatus, _ := status.FromError(err)
-		errorType, grpcCode, details := parseGrpcError(grpcStatus.Message())
-		httpCode := mapGrpcCodeToHttp(grpcCode)
+		errorType, _, details := parseGrpcError(grpcStatus.Message())
+		httpCode := http.StatusForbidden
 
 		c.JSON(httpCode, model.GenericResponse{
 			Success: false,

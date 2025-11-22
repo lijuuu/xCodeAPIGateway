@@ -18,7 +18,7 @@ type ClientConnections struct {
 	ConnChallenge *grpc.ClientConn
 }
 
-//load balancing in grpc 
+//load balancing in grpc
 //way1: we can implement app level lb using the grpc client itself that can automatically lb using any algos(default: round robin)
 //way2: dedicated lb server using nginx etc that can implement much more than just being an LB - (ratelimiting)
 
@@ -55,25 +55,25 @@ func InitClients(config *config.Config) (*ClientConnections, error) {
 	}
 	fmt.Println("Successfully connected to UserService at:", targetUser)
 
-	// Connect to User gRPC service
-	targetChallenge := config.ChallengeGRPCURL
-	log.Println("Target UserGRPC URL ", targetUser)
-	connChallenge, err := grpc.Dial(targetChallenge, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to User gRPC server: %v", err)
-	}
+	// // Connect to User gRPC service
+	// targetChallenge := config.ChallengeGRPCURL
+	// log.Println("Target ChallengeGRPC URL ", targetChallenge)
+	// connChallenge, err := grpc.Dial(targetChallenge, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to connect to Challeneg gRPC server: %v", err)
+	// }
 
-	// Check connection state
-	if !waitForConnection(connUser, 5*time.Second) {
-		connUser.Close()
-		return nil, fmt.Errorf("user gRPC connection is not ready")
-	}
-	fmt.Println("Successfully connected to UserService at:", targetUser)
+	// // Check connection state
+	// if !waitForConnection(connChallenge, 5*time.Second) {
+	// 	connChallenge.Close()
+	// 	return nil, fmt.Errorf("challenge gRPC connection is not ready")
+	// }
+	// fmt.Println("Successfully connected to Challenge at:", targetChallenge)
 
 	return &ClientConnections{
 		ConnUser:      connUser,
 		ConnProblem:   connProblem,
-		ConnChallenge: connChallenge,
+		ConnChallenge: nil,
 	}, nil
 }
 
@@ -102,7 +102,7 @@ func (c *ClientConnections) Close() {
 	if c.ConnProblem != nil {
 		c.ConnProblem.Close()
 	}
-	if c.ConnChallenge !=nil{
+	if c.ConnChallenge != nil {
 		c.ConnChallenge.Close()
 	}
 }
